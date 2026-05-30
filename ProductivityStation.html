@@ -172,7 +172,6 @@
                 <button id="startPauseBtn" class="btn-main" onclick="toggleTimers()">Start Timers</button>
                 <button id="dismissBtn" class="btn-alarm" onclick="dismissAlarm()">Dismiss Alarm & Continue</button>
 
-                <!-- 🔥 ΝΕΑ ΜΠΑΡΑ ΣΤΟΧΟΥ ΒΑΡΔΙΑΣ 🔥 -->
                 <div class="section-frame">
                     <div class="shift-goal-container">
                         <div class="shift-goal-title">
@@ -280,7 +279,7 @@
     let jobsDatabase = {};
 
     let stationId = "1";
-    let globalShiftTarget = 0; // Αποθηκεύει τον στόχο του επόπτη
+    let globalShiftTarget = 0; 
 
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
     let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
@@ -458,7 +457,6 @@
         updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
         
-        // Άμεση κλήση στον Server για να πάρει τον στόχο βάρδιας
         pollSupervisorTarget();
     }
 
@@ -608,7 +606,6 @@
         }
     }
 
-    // Ενημέρωση της Μπάρας Στόχου Βάρδιας (Shift Target)
     function updateShiftGoalUI(currentShiftProducts) {
         document.getElementById('displayShiftCurrent').textContent = currentShiftProducts.toLocaleString();
         document.getElementById('displayShiftTarget').textContent = globalShiftTarget.toLocaleString();
@@ -664,6 +661,9 @@
 
         updatePalletFills(newTotalProducts);
         updateShiftGoalUI(totalShiftProducts);
+        
+        // 🔥 Διαβάζουμε πόσες παλέτες έχουν ετοιμαστεί
+        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
 
@@ -682,13 +682,13 @@
                 body: JSON.stringify({
                     station_id: stationId,
                     shift_boxes: totalShiftBoxes,
-                    shift_total: totalShiftProducts
+                    shift_total: totalShiftProducts,
+                    completed_pallets: readyPallets // Στέλνει τις παλέτες στον Server
                 })
             }).then(res => console.log("Server Sync Success!")).catch(err => console.error("Server Sync Error:", err));
         }
     }
 
-    // 🔥 ΡΩΤΑΕΙ ΤΟΝ SERVER ΓΙΑ ΤΟΝ ΣΤΟΧΟ ΚΑΘΕ 5 ΔΕΥΤΕΡΟΛΕΠΤΑ 🔥
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
