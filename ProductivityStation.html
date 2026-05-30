@@ -101,14 +101,15 @@
         <h3 style="color: #89b4fa; margin: 10px 0 0 0;">Create New Production Job</h3>
         
         <div style="width: 100%; max-width: 600px; margin-bottom: 10px;">
-            <label style="color:#a6adc8; font-weight:bold;">Select Station ID:</label>
+            <label style="color:#a6adc8; font-weight:bold;">Select Station:</label>
+            <!-- 🔥 ΤΑ ΝΕΑ ΟΝΟΜΑΤΑ ΣΤΑΘΜΩΝ ΕΔΩ 🔥 -->
             <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
-                <option value="1">Station 1</option>
-                <option value="2">Station 2</option>
-                <option value="3">Station 3</option>
-                <option value="4">Station 4</option>
-                <option value="5">Station 5</option>
-                <option value="6">Station 6</option>
+                <option value="1">Line 1</option>
+                <option value="2">Line 2</option>
+                <option value="3">Line 3</option>
+                <option value="4">Line 4</option>
+                <option value="5">Pouch</option>
+                <option value="6">Powder Room</option>
             </select>
         </div>
 
@@ -247,8 +248,18 @@
 <audio id="radioAudio" preload="none"></audio>
 
 <script>
-    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
+
+    // 🔥 ΛΕΞΙΚΟ ΟΝΟΜΑΤΩΝ ΣΤΑΘΜΩΝ 🔥
+    const STATION_NAMES = {
+        "1": "Line 1",
+        "2": "Line 2",
+        "3": "Line 3",
+        "4": "Line 4",
+        "5": "Pouch",
+        "6": "Powder Room"
+    };
 
     let activeJobId = null;
     let jobsDatabase = {};
@@ -271,7 +282,6 @@
     const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
     const logList = document.getElementById('logList');
 
-    // Υπολογισμός Τρέχουσας Βάρδιας (Shift)
     function getCurrentShift() {
         let hour = new Date().getHours();
         if (hour >= 6 && hour < 14) return "Morning Shift";
@@ -295,9 +305,10 @@
             let job = jobsDatabase[id];
             let row = document.createElement('div');
             row.className = 'job-item-row';
+            let sName = STATION_NAMES[job.stationId] || "Unknown";
             row.innerHTML = `
                 <div class="job-info-text" onclick="loadSelectedJob('${id}')">
-                    💼 [Station ${job.stationId || '?'}] Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
+                    💼 [${sName}] Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
                 </div>
                 <button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>
             `;
@@ -311,6 +322,8 @@
         let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
 
         let stId = document.getElementById('setupStationId').value;
+        let sName = STATION_NAMES[stId] || "Unknown";
+        
         let bSz = Math.max(0, parseInt(document.getElementById('setupBatchSize').value) || 30000);
         let pBx = Math.max(1, parseInt(document.getElementById('setupProdPerBox').value) || 6);
         let bLy = Math.max(1, parseInt(document.getElementById('setupBoxesPerLayer').value) || 72);
@@ -336,7 +349,7 @@
             initialJobBoxesLock: initialBoxes,
             timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, 
             hourCounter: 0, hourlyLabels: [], hourlyData: [], 
-            logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on Station ${stId} (${getCurrentShift()}).`, type: `check` }]
+            logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName} (${getCurrentShift()}).`, type: `check` }]
         };
 
         saveDatabaseToStorage();
@@ -348,7 +361,7 @@
         let job = jobsDatabase[id];
 
         stationId = job.stationId || "1";
-        document.getElementById('activeStationDisplay').textContent = "Station " + stationId;
+        document.getElementById('activeStationDisplay').textContent = STATION_NAMES[stationId] || "Unknown";
 
         batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer;
         layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts;
