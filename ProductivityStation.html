@@ -169,11 +169,12 @@
                 <div class="section-frame">
                     <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
                     <div class="pallet-container" id="palletGrid">
-                        </div>
+                        <!-- Γεμίζει από τη Javascript -->
+                    </div>
                 </div>
 
                 <div class="section-frame">
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications (<span id="activeStationDisplay" style="color:#f9e2af;"></span>)</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications (<span id="activeStationDisplay" style="color:#f9e2af;"></span> | <span id="shiftDisplayTop" style="color:#a6e3a1;"></span>)</div>
                     <table class="specs-table">
                         <thead>
                             <tr><th>Parameter</th><th>Value</th></tr>
@@ -210,7 +211,7 @@
                         <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
                         <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
-                        <div class="result-row shift-total"><span>Current Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
+                        <div class="result-row shift-total"><span id="shiftLabelText">Current Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row highlight"><span>HOURLY DIFFERENCE</span><span id="resDifference">0</span></div>
                     </div>
                 </div>
@@ -270,6 +271,14 @@
     const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
     const logList = document.getElementById('logList');
 
+    // Υπολογισμός Τρέχουσας Βάρδιας (Shift)
+    function getCurrentShift() {
+        let hour = new Date().getHours();
+        if (hour >= 6 && hour < 14) return "Morning Shift";
+        if (hour >= 14 && hour < 22) return "Afternoon Shift";
+        return "Night Shift";
+    }
+
     function refreshSavedJobsUI() {
         const listDiv = document.getElementById('savedJobsList');
         let stored = localStorage.getItem('dashboard_production_jobs_db');
@@ -309,7 +318,7 @@
         let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
 
         let customStr = document.getElementById('setupCustomPallets').value;
-        let customPos = document.getElementById('setupCustomPos').value; // 'start' ή 'end'
+        let customPos = document.getElementById('setupCustomPos').value; 
         let customArr = [];
         if (customStr.trim() !== "") {
             customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
@@ -321,13 +330,13 @@
         jobsDatabase[id] = {
             id: id, createdTime: timestamp, stationId: stId,
             batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
-            customPallets: customArr, customPos: customPos, // Αποθηκεύουμε array & position
+            customPallets: customArr, customPos: customPos, 
             previousTotalProducts: sPr, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
             initialJobBoxesLock: initialBoxes,
             timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, 
             hourCounter: 0, hourlyLabels: [], hourlyData: [], 
-            logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on Station ${stId}.`, type: `check` }]
+            logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on Station ${stId} (${getCurrentShift()}).`, type: `check` }]
         };
 
         saveDatabaseToStorage();
@@ -350,7 +359,6 @@
 
         productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
         
-        // --- ΥΠΟΛΟΓΙΣΜΟΣ ΣΕΙΡΑΣ ΠΑΛΕΤΩΝ ΜΕ ΒΑΣΗ ΤΗΝ ΕΠΙΛΟΓΗ ---
         let customArr = job.customPallets || [];
         let customPos = job.customPos || "end";
         let sumCustom = customArr.reduce((a, b) => a + b, 0);
@@ -615,7 +623,8 @@
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
 
         let diffStr = difference >= 0 ? "+" + difference : difference;
-        addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${newTotalProducts} | Diff: ${diffStr} | Shift Total: ${totalShiftProducts} (${totalShiftBoxes} Boxes)`, 'calc');
+        let shiftName = getCurrentShift();
+        addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${newTotalProducts} | Diff: ${diffStr} | ${shiftName} Total: ${totalShiftProducts} (${totalShiftBoxes} Boxes)`, 'calc');
 
         lastCalculatedBoxes = currentBoxes; lastCalculatedLoose = looseProducts; previousTotalProducts = newTotalProducts;
 
@@ -717,6 +726,12 @@
         if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
         if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
         display1.textContent = formatTime(timer1Remaining, false); display2.textContent = formatTime(timer2Remaining, true); 
+        
+        let currentShift = getCurrentShift();
+        let topShiftLabel = document.getElementById('shiftDisplayTop');
+        if (topShiftLabel) topShiftLabel.textContent = currentShift;
+        let totalShiftLabel = document.getElementById('shiftLabelText');
+        if (totalShiftLabel) totalShiftLabel.textContent = currentShift + " Products:";
     }
 
     function toggleTimers() {
