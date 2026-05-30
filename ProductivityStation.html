@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 20px; }
+        .container { background-color: #313244; padding: 20px; border-radius: 20px; max-width: 1200px; margin: auto; box-shadow: 0 16px 40px rgba(0,0,0,0.5); }
+        h1 { text-align: center; color: #89b4fa; }
+        .setup-screen { display: flex; flex-direction: column; gap: 15px; align-items: center; }
+        .main-dashboard { display: none; }
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .section-frame { background-color: #1e1e2e; padding: 15px; border-radius: 10px; border: 1px solid #45475a; }
+        .timer-display { font-size: 3rem; font-family: monospace; text-align: center; color: #fff; }
+        input, select { width: 100%; padding: 10px; background: #1e1e2e; color: white; border: 1px solid #45475a; border-radius: 5px; box-sizing: border-box; margin-bottom: 10px; font-size: 1.1rem; }
+        button { padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-main { background-color: #a6e3a1; color: #11111b; width: 100%; }
+        .btn-alarm { background-color: #f38ba8; color: #11111b; width: 100%; display: none; margin-top: 10px; }
+        .log-container { height: 200px; overflow-y: auto; background: #11111b; padding: 10px; font-family: monospace; border-radius: 10px; border: 1px solid #45475a; margin-top: 10px; }
+        ul { list-style: none; padding: 0; }
+        .log-item { border-bottom: 1px solid #313244; padding: 5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Production Workstation</h1>
+    <div id="setupScreen" class="section-frame" style="max-width: 500px; margin: auto;">
+        <div id="savedJobsList"></div>
+        <hr style="border-color: #45475a; margin: 15px 0;">
+        <h3 style="color: #fab387; margin-top:0;">Station & Job Setup</h3>
+        
+        <label style="color:#a6adc8; font-weight:bold;">Select Station ID:</label>
+        <select id="setupStationId">
+            <option value="1">Station 1</option>
+            <option value="2">Station 2</option>
+            <option value="3">Station 3</option>
+            <option value="4">Station 4</option>
+            <option value="5">Station 5</option>
+            <option value="6">Station 6</option>
+        </select>
+
+        <input type="number" id="setupBatchSize" value="30000" placeholder="Batch Size">
+        <input type="number" id="setupProdPerBox" value="6" placeholder="Prod/Box">
+        <input type="number" id="setupStartingProd" value="0" placeholder="Starting Products">
+        <button class="btn-main" onclick="createNewJob()">Start & Save Job</button>
+    </div>
+
+    <div id="mainDashboard" class="main-dashboard">
+        <div class="main-grid">
+            <div class="left-column">
+                <div class="section-frame" style="margin-top:0;">
+                    <div style="text-align:center; color:#fab387; font-weight:bold; margin-bottom:5px;" id="activeStationDisplay">Station X</div>
+                    <div id="display1" class="timer-display">30:00</div>
+                    <div id="display2" class="timer-display" style="color:#a6adc8;">01:00:00</div>
+                </div>
+                <button class="btn-main" style="margin-top:10px;" onclick="toggleTimers()">Start / Pause Timers</button>
+                <button id="dismissBtn" class="btn-alarm" onclick="dismissAlarm()">Dismiss Alarm & Reset All</button>
+                <button class="btn-main" onclick="exitJob()" style="background:#89b4fa; margin-top:10px;">Back to Jobs / Setup</button>
+            </div>
+            
+            <div class="right-column">
+                <div class="section-frame" style="margin-top:0;">
+                    <label style="color:#a6e3a1; font-weight:bold;">Current Total Boxes</label>
+                    <input type="number" id="currentBoxes" placeholder="Total Boxes">
+                    
+                    <label style="color:#f38ba8; font-weight:bold;">Loose Products (Pcs)</label>
+                    <input type="number" id="currentLoose" placeholder="Loose Products" value="0">
+                    
+                    <button class="btn-main" style="background:#fab387;" onclick="calculateProduction()">Calculate Production</button>
+                    
+                    <div id="resBox" style="margin-top:15px; font-size:1.2rem; font-family:monospace;"></div>
+                </div>
+                
+                <div class="log-container"><ul id="logList"></ul></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL (π.χ. "https://my-factory-server.onrender.com")
+    const SERVER_URL = "https://my-factory-server.onrender.com/";
+
+    let activeJob = null;
+    let jobsDatabase = JSON.parse(localStorage.getItem('jobs_db_v2') || '{}');
+    let timer1 = 1800, timer2 = 3600, isRunning = false;
+    let timerInterval = null;
+
+    // 1. Job Management
+    function createNewJob() {
+        let id = 'job_' + Date.now();
+        let prodPerBox = parseInt(document.getElementById('setupProdPerBox').value) || 6;
+        let start = parseInt(document.getElementById('setupStartingProd').value) || 0;
+        let stationId = document.getElementById('setupStationId').value;
+        
+        activeJob = { 
+            id, 
+            stationId,
+            prodPerBox, 
+            startingProducts: start, 
+            initialBoxes: Math.floor(start / prodPerBox),
+            logs: [] 
+        };
+        jobsDatabase[id] = activeJob;
+        save();
+        loadJob(id);
+    }
+
+    function loadJob(id) {
+        activeJob = jobsDatabase[id];
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('mainDashboard').style.display = 'block';
+        document.getElementById('activeStationDisplay').textContent = `Operating on Station ${activeJob.stationId}`;
+        updateLogDisplay();
+    }
+
+    // 2. Production Logic & SERVER SYNC
+    function calculateProduction() {
+        let boxes = parseInt(document.getElementById('currentBoxes').value) || 0;
+        let loose = parseInt(document.getElementById('currentLoose').value) || 0;
+        
+        // Μαθηματικά με αφαίρεση
+        let totalShiftBoxes = boxes - activeJob.initialBoxes;
+        let newTotal = (boxes * activeJob.prodPerBox) + loose;
+        let shiftTotalProducts = newTotal - activeJob.startingProducts;
+        
+        let msg = `[${new Date().toLocaleTimeString()}] Total: ${newTotal} | Shift Boxes: ${totalShiftBoxes} | Products: ${shiftTotalProducts}`;
+        activeJob.logs.push(msg);
+        document.getElementById('resBox').innerHTML = `
+            <div style="color:#a6e3a1;">Shift Total Boxes: <strong>${totalShiftBoxes}</strong></div>
+            <div style="color:#89b4fa;">Shift Total Pieces: <strong>${shiftTotalProducts}</strong></div>
+        `;
+        
+        updateLogDisplay();
+        save();
+
+        // 🔥 ΕΠΙΚΟΙΝΩΝΙΑ ΜΕ ΤΟΝ RENDER SERVER 🔥
+        fetch(`${SERVER_URL}/api/update_station`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                station_id: activeJob.stationId,
+                shift_boxes: totalShiftBoxes,
+                shift_total: shiftTotalProducts
+            })
+        }).then(res => console.log("Server Sync Success!"))
+          .catch(err => console.error("Server Sync Error:", err));
+    }
+
+    // 3. Timers & Alarm
+    function toggleTimers() {
+        isRunning = !isRunning;
+        if (isRunning && !timerInterval) {
+            timerInterval = setInterval(() => {
+                timer1--; timer2--;
+                if(timer1 <= 0 || timer2 <= 0) document.getElementById('dismissBtn').style.display = 'block';
+                updateDisplay();
+            }, 1000);
+        } else {
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+
+    function dismissAlarm() {
+        if(timer1 <= 0) timer1 = 1800;
+        if(timer2 <= 0) timer2 = 3600;
+        document.getElementById('dismissBtn').style.display = 'none';
+        updateDisplay();
+    }
+
+    // 4. Utils
+    function updateDisplay() {
+        document.getElementById('display1').textContent = formatTime(timer1);
+        document.getElementById('display2').textContent = formatTime(timer2);
+    }
+
+    function updateLogDisplay() {
+        let list = document.getElementById('logList');
+        list.innerHTML = "";
+        // Δείχνουμε τα logs ανάποδα (τα πιο πρόσφατα πάνω)
+        let revLogs = [...activeJob.logs].reverse();
+        revLogs.forEach(l => list.innerHTML += `<li class="log-item">${l}</li>`);
+    }
+
+    function formatTime(s) { 
+        if(s < 0) s = 0;
+        return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; 
+    }
+
+    function save() { localStorage.setItem('jobs_db_v2', JSON.stringify(jobsDatabase)); }
+    function exitJob() { location.reload(); }
+
+    function refreshJobs() {
+        let list = document.getElementById('savedJobsList');
+        list.innerHTML = "<h3 style='color:#a6e3a1; margin-top:0;'>Saved Jobs</h3>";
+        Object.keys(jobsDatabase).forEach(id => {
+            list.innerHTML += `<div class="job-item"><span>Station ${jobsDatabase[id].stationId}</span> <button style="padding:8px; font-size:1rem;" onclick="loadJob('${id}')">Load</button> <button style="padding:8px; font-size:1rem; background:#f38ba8; color:#11111b;" onclick="deleteJob('${id}')">X</button></div>`;
+        });
+    }
+    
+    function deleteJob(id) {
+        delete jobsDatabase[id];
+        save();
+        refreshJobs();
+    }
+    
+    refreshJobs();
+</script>
+</body>
+</html>

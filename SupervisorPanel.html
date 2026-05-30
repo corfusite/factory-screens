@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Supervisor Panel - Production</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #11111b; color: #cdd6f4; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #89b4fa; text-align: center; margin-bottom: 30px; font-size: 2.5rem; }
+        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 1200px; }
+        .station-card { background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.3s; }
+        .station-card.online { border-color: #a6e3a1; }
+        .station-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #313244; padding-bottom: 10px; margin-bottom: 15px; }
+        .station-name { font-size: 1.5rem; font-weight: bold; color: #f9e2af; }
+        .status-badge { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        .status-online { background-color: #a6e3a1; color: #11111b; }
+        .status-offline { background-color: #f38ba8; color: #11111b; }
+        .data-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 1.2rem; }
+        .data-value { font-family: monospace; font-weight: bold; font-size: 1.5rem; color: #fab387; }
+        .last-update { font-size: 0.8rem; color: #6c7086; text-align: right; margin-top: 15px; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <h1>Global Production Overview</h1>
+    <div class="grid-container" id="supervisorGrid">
+        </div>
+
+<script>
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL (π.χ. "https://my-factory-server.onrender.com")
+    const SERVER_URL = "https://my-factory-server.onrender.com/";
+
+    function createEmptyCards() {
+        const grid = document.getElementById('supervisorGrid');
+        grid.innerHTML = '';
+        for (let i = 1; i <= 6; i++) {
+            grid.innerHTML += `
+                <div class="station-card" id="card-${i}">
+                    <div class="station-header">
+                        <div class="station-name">Station ${i}</div>
+                        <div class="status-badge status-offline" id="status-${i}">Offline</div>
+                    </div>
+                    <div class="data-row"><span>Shift Boxes:</span> <span class="data-value" id="boxes-${i}">0</span></div>
+                    <div class="data-row"><span>Total Pieces:</span> <span class="data-value" id="pieces-${i}">0</span></div>
+                    <div class="last-update">Last Update: <span id="time-${i}">-</span></div>
+                </div>
+            `;
+        }
+    }
+
+    async function fetchServerData() {
+        try {
+            const response = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
+            const data = await response.json();
+
+            for (let i = 1; i <= 6; i++) {
+                const stationData = data[i.toString()];
+                if (stationData) {
+                    document.getElementById(`boxes-${i}`).textContent = stationData.shift_boxes;
+                    document.getElementById(`pieces-${i}`).textContent = stationData.shift_total;
+                    document.getElementById(`time-${i}`).textContent = stationData.last_update;
+                    
+                    const card = document.getElementById(`card-${i}`);
+                    const badge = document.getElementById(`status-${i}`);
+                    
+                    if (stationData.status === "Online") {
+                        card.classList.add('online');
+                        badge.className = 'status-badge status-online';
+                        badge.textContent = 'Online';
+                    }
+                }
+            }
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+
+    createEmptyCards();
+    // Ρωτάει τον server κάθε 3 δευτερόλεπτα!
+    setInterval(fetchServerData, 3000); 
+    fetchServerData();
+</script>
+</body>
+</html>
