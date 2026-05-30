@@ -92,6 +92,7 @@
         .log-item { padding: 4px 5px; border-bottom: 1px solid #313244; display: flex; gap: 10px; }
         .log-item.calc { color: #a6e3a1; }
         .log-item.check { color: #fab387; }
+        .log-item.sync { color: #89b4fa; }
 
         /* INCOMING MESSAGE MODAL */
         .msg-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 9999; }
@@ -105,7 +106,6 @@
 </head>
 <body>
 
-<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -227,7 +227,6 @@
                         </tbody>
                     </table>
                     
-                    <!-- 🔥 ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ ΒΟΗΘΕΙΑΣ 🔥 -->
                     <div class="call-container">
                         <button class="call-btn call-supervisor" onclick="sendHelpAlert('Supervisor')">Call Supervisor</button>
                         <button class="call-btn call-qa" onclick="sendHelpAlert('QA')">Call QA</button>
@@ -251,7 +250,10 @@
                         </div>
                     </div>
 
-                    <button class="btn-main" style="background-color: #fab387; margin-bottom: 10px;" onclick="calculateProduction()">Calculate Production</button>
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                        <button class="btn-main" style="background-color: #89b4fa; flex: 1; font-size: 1.1rem; padding: 12px 10px;" onclick="updateLiveProgress()">Live Update</button>
+                        <button class="btn-main" style="background-color: #fab387; flex: 1.2; font-size: 1.1rem; padding: 12px 10px;" onclick="calculateProduction()">Hourly Booking</button>
+                    </div>
 
                     <div class="results-box">
                         <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
@@ -446,7 +448,14 @@
         document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets Total`;
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
-        let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
+        // Λήψη των τιμών από τα πεδία που είχαν σωθεί για να φτιάξει σωστά τις παλέτες στο Load
+        let displayBoxes = job.currentBoxesVal !== "" ? parseInt(job.currentBoxesVal) : job.lastCalculatedBoxes;
+        let displayLoose = job.currentLooseVal !== "" ? parseInt(job.currentLooseVal) : job.lastCalculatedLoose;
+        if(isNaN(displayBoxes)) displayBoxes = 0;
+        if(isNaN(displayLoose)) displayLoose = 0;
+
+        let initialCalculatedTotal = (displayBoxes * prodPerBox) + displayLoose;
+        
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
         document.getElementById('resShiftTotal').textContent = initialCalculatedTotal - startingProducts;
         document.getElementById('resDifference').textContent = "0";
@@ -606,13 +615,50 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
+    // 🔥 ΝΕΑ ΛΕΙΤΟΥΡΓΙΑ: Live Update (Χωρίς Hourly Booking) 🔥
+    function updateLiveProgress() {
+        if (!activeJobId) return;
+        let currentBoxesInput = document.getElementById('currentBoxes').value;
+        if (currentBoxesInput === "") return;
+        
+        let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
+        let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+
+        let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
+        let totalShiftProducts = currentTotalProducts - startingProducts;
+        let totalShiftBoxes = currentBoxes - initialJobBoxesLock;
+
+        // Ενημερώνει ΜΟΝΟ τα Live UI Elements
+        document.getElementById('resNewTotal').textContent = currentTotalProducts;
+        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+
+        updatePalletFills(currentTotalProducts); 
+        updateShiftGoalUI(totalShiftProducts);
+        
+        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+
+        // Σώζει τις τιμές των Input για να μην χαθούν σε Refresh
+        jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
+        jobsDatabase[activeJobId].currentLooseVal = looseProducts;
+        saveDatabaseToStorage();
+
+        // Στέλνει τα δεδομένα στον Supervisor
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
+            }).catch(err => console.log("Sync delay"));
+        }
+        
+        addLogEntry(`> Live Sync: Data updated to Supervisor (${currentTotalProducts} pcs)`, 'sync');
+    }
+
+    // Το παλιό καλό Calculate Production (για το Hourly Booking)
     function calculateProduction() {
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
-
-        if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
         let newTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
         let difference = newTotalProducts - previousTotalProducts;
@@ -639,11 +685,10 @@
             fetch(`${SERVER_URL}/api/update_station`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
-            }).catch(err => console.log("Server Sync delay"));
+            }).catch(err => console.log("Sync delay"));
         }
     }
 
-    // 🔥 ΛΕΙΤΟΥΡΓΙΑ ΕΝΔΟΕΠΙΚΟΙΝΩΝΙΑΣ (SELF-HEALING ΧΩΡΙΣ POPUPS) 🔥
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
@@ -685,7 +730,7 @@
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 Στέλνει Κλήση (Alert) - ΧΩΡΙΣ ALERT POPUPS! 🔥
+    // 🔥 Στέλνει Κλήση (Alert) ΧΩΡΙΣ ALERT POPUPS! 🔥
     async function sendHelpAlert(type) {
         pendingAlertAck = true;
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
@@ -700,7 +745,6 @@
         }
     }
 
-    // 🔥 Όταν έρχεται μήνυμα
     function triggerSupervisorMessage(msgText) {
         document.getElementById('msgOverlay').style.display = 'flex';
         document.getElementById('msgOverlayText').textContent = msgText;
@@ -714,7 +758,6 @@
         activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000);
     }
 
-    // 🔥 Όταν ο εργάτης πατάει ACKNOWLEDGE
     async function acknowledgeSupervisorMessage() {
         document.getElementById('msgOverlay').style.display = 'none';
         clearInterval(activeMessageInterval);
@@ -732,7 +775,6 @@
         if (radioWasPlayingBeforeMsg) { startRadio(); radioWasPlayingBeforeMsg = false; }
     }
 
-    // 🔥 Όταν ο Επόπτης απαντάει στην κλήση
     function playAckVoice() {
         let wasRadio = !radioAudio.paused;
         stopRadio();
