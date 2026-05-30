@@ -105,6 +105,7 @@
 </head>
 <body>
 
+<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -226,6 +227,7 @@
                         </tbody>
                     </table>
                     
+                    <!-- 🔥 ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ ΒΟΗΘΕΙΑΣ 🔥 -->
                     <div class="call-container">
                         <button class="call-btn call-supervisor" onclick="sendHelpAlert('Supervisor')">Call Supervisor</button>
                         <button class="call-btn call-qa" onclick="sendHelpAlert('QA')">Call QA</button>
@@ -304,8 +306,8 @@
 
     let stationId = "1";
     let globalShiftTarget = 0; 
-    let localMessageRead = true; // Μνήμη του εργάτη για το αν διάβασε το μήνυμα
-    let pendingAlertAck = false; // Μνήμη ότι περιμένουμε απάντηση του επόπτη
+    let localMessageRead = true; 
+    let pendingAlertAck = false; 
     let activeMessageInterval = null;
     let radioWasPlayingBeforeMsg = false;
 
@@ -637,11 +639,11 @@
             fetch(`${SERVER_URL}/api/update_station`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
-            }).catch(err => console.error("Server Sync Error:", err));
+            }).catch(err => console.log("Server Sync delay"));
         }
     }
 
-    // 🔥 ΛΕΙΤΟΥΡΓΙΑ ΕΝΔΟΕΠΙΚΟΙΝΩΝΙΑΣ & SELF-HEALING 🔥
+    // 🔥 ΛΕΙΤΟΥΡΓΙΑ ΕΝΔΟΕΠΙΚΟΙΝΩΝΙΑΣ (SELF-HEALING ΧΩΡΙΣ POPUPS) 🔥
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
@@ -662,10 +664,9 @@
                     fetch(`${SERVER_URL}/api/update_station`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxesToSend, shift_total: currentLocalTotal, completed_pallets: readyPallets })
-                    });
+                    }).catch(e => console.log(e));
                 }
 
-                // ΕΛΕΓΧΟΣ: Μήπως έχουμε νέο Μήνυμα;
                 let sMsg = data[stationId].supervisor_message;
                 let isRead = data[stationId].message_read;
 
@@ -674,28 +675,29 @@
                     triggerSupervisorMessage(sMsg);
                 }
 
-                // ΕΛΕΓΧΟΣ: Μήπως ο Επόπτης απάντησε στην κλήση μας;
                 let serverAcked = data[stationId].alert_acknowledged;
                 if (pendingAlertAck && serverAcked) {
                     pendingAlertAck = false;
                     playAckVoice(); 
                 }
             }
-        } catch(e) {}
+        } catch(e) { console.log("Polling delay"); }
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 Στέλνει Κλήση (Alert) στον Επόπτη
+    // 🔥 Στέλνει Κλήση (Alert) - ΧΩΡΙΣ ALERT POPUPS! 🔥
     async function sendHelpAlert(type) {
+        pendingAlertAck = true;
+        addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
+        
         try {
             await fetch(`${SERVER_URL}/api/send_alert`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ station_id: stationId, alert: type })
             });
-            pendingAlertAck = true;
-            addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
-            alert(`Call for ${type} sent to the Supervisor!`);
-        } catch (error) { alert("Connection Error!"); }
+        } catch (error) { 
+            console.log("Network delay ignored."); 
+        }
     }
 
     // 🔥 Όταν έρχεται μήνυμα
@@ -780,7 +782,6 @@
         }
         hasVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
         
-        // Show all voices available
         voices.forEach(v => {
             let opt = document.createElement('option'); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelector.appendChild(opt);
         });
@@ -789,7 +790,6 @@
         if (savedVoice && voices.some(v => v.name === savedVoice)) { 
             voiceSelector.value = savedVoice; 
         } else {
-            // Try to default to a UK English voice if no preference is saved
             let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK'));
             if (ukVoice) voiceSelector.value = ukVoice.name;
         }
