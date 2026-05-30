@@ -520,14 +520,30 @@
         }
     }
 
-    function loadRadioStations() {
-        stationSelector.innerHTML = "";
-        if (typeof myRadioStations !== 'undefined') {
-            for (let name in myRadioStations) {
-                let opt = document.createElement('option'); opt.value = myRadioStations[name]; opt.textContent = name; stationSelector.appendChild(opt);
-            }
-        } else { 
-            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "No stations.js found"; stationSelector.appendChild(opt); 
+    async function loadRadioStations() {
+        const stationSelector = document.getElementById('stationSelector');
+        stationSelector.innerHTML = "<option value=''>Φόρτωση σταθμών (UK)...</option>";
+
+        try {
+            // Ζητάει από την παγκόσμια υπηρεσία τους κορυφαίους 150 σταθμούς της Αγγλίας
+            // (Το https_only=true είναι κρίσιμο για να παίζουν απροβλημάτιστα στο ίντερνετ)
+            const response = await fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true');
+            const stations = await response.json();
+
+            stationSelector.innerHTML = "<option value=''>-- Επίλεξε Σταθμό (UK) --</option>";
+            
+            // Βάζει έναν-έναν τους σταθμούς στο δικό σου μενού!
+            stations.forEach(station => {
+                if (station.url_resolved && station.name.trim() !== "") {
+                    let opt = document.createElement('option');
+                    opt.value = station.url_resolved;
+                    opt.textContent = station.name.trim();
+                    stationSelector.appendChild(opt);
+                }
+            });
+        } catch (error) {
+            console.error("Σφάλμα φόρτωσης ραδιοφώνου:", error);
+            stationSelector.innerHTML = "<option value=''>Αποτυχία σύνδεσης στο ραδιόφωνο</option>";
         }
     }
 
