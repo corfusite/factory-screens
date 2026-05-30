@@ -45,7 +45,6 @@
 
     <h1>Global Production Overview</h1>
     
-    <!-- GLOBAL PROGRESS PANEL -->
     <div class="global-panel">
         <div class="global-title">Total Factory Shift Progress</div>
         <div class="global-stats">Total Produced: <span id="global-current" style="color:#a6e3a1;">0</span> / Total Target: <span id="global-target" style="color:#fab387;">0</span></div>
@@ -54,7 +53,6 @@
         </div>
     </div>
 
-    <!-- STATION GRID -->
     <div class="grid-container" id="supervisorGrid"></div>
 
 <script>
@@ -73,6 +71,7 @@
                         <div class="station-name">${STATION_NAMES[i]}</div>
                         <div class="status-badge status-offline" id="status-${i}">Offline</div>
                     </div>
+                    <div class="data-row"><span>Ready Pallets:</span> <span class="data-value" id="pallets-${i}" style="color:#a6e3a1; font-size: 1.8rem;">0</span></div>
                     <div class="data-row"><span>Shift Boxes:</span> <span class="data-value" id="boxes-${i}">0</span></div>
                     <div class="data-row"><span>Shift Pieces:</span> <span class="data-value" id="pieces-${i}">0</span></div>
                     
@@ -107,7 +106,7 @@
                 body: JSON.stringify({ station_id: stationId, target: targetNum })
             });
             document.getElementById(`input-target-${stationId}`).value = "";
-            fetchServerData(); // Ζητάει αμέσως ενημέρωση
+            fetchServerData();
         } catch (error) {
             console.error("Error setting target:", error);
         }
@@ -129,10 +128,10 @@
                     
                     document.getElementById(`boxes-${i}`).textContent = stationData.shift_boxes;
                     document.getElementById(`pieces-${i}`).textContent = currentTotal;
+                    document.getElementById(`pallets-${i}`).textContent = stationData.completed_pallets || 0;
                     document.getElementById(`disp-target-${i}`).textContent = shiftTarget;
                     document.getElementById(`time-${i}`).textContent = stationData.last_update;
                     
-                    // Υπολογισμός Mini Μπάρας
                     let pct = 0;
                     if(shiftTarget > 0) {
                         pct = Math.min(100, Math.floor((currentTotal / shiftTarget) * 100));
@@ -140,7 +139,6 @@
                     document.getElementById(`bar-${i}`).style.width = pct + "%";
                     document.getElementById(`pct-${i}`).textContent = pct + "%";
                     
-                    // Χρωματισμός Μπάρας
                     document.getElementById(`bar-${i}`).style.backgroundColor = pct >= 100 ? "#a6e3a1" : "#89b4fa";
 
                     const card = document.getElementById(`card-${i}`);
@@ -157,7 +155,6 @@
                 }
             }
 
-            // Υπολογισμός Global Μπάρας
             document.getElementById('global-current').textContent = globalTotal.toLocaleString();
             document.getElementById('global-target').textContent = globalTarget.toLocaleString();
             
