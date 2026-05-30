@@ -14,7 +14,7 @@
         /* Setup Screen */
         .setup-screen { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; }
         .setup-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 600px; }
-        .setup-grid div { display: flex; flex-direction: column; }
+        .setup-grid div.field-group { display: flex; flex-direction: column; }
         .setup-grid label { font-size: 1rem; margin-bottom: 5px; color: #a6adc8; font-weight: 600; }
         
         .job-list-container { width: 100%; max-width: 600px; background-color: #11111b; border-radius: 12px; padding: 15px; box-sizing: border-box; }
@@ -113,29 +113,36 @@
         </div>
 
         <div class="setup-grid">
-            <div>
+            <div class="field-group">
                 <label>Batch Size (Total Units)</label>
                 <input type="number" id="setupBatchSize" value="30000" min="0" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Products per Box</label>
                 <input type="number" id="setupProdPerBox" value="6" min="1" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Boxes per Layer</label>
                 <input type="number" id="setupBoxesPerLayer" value="72" min="1" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Layers per Pallet</label>
                 <input type="number" id="setupLayersPerPallet" value="12" min="1" onclick="this.select()">
             </div>
-            <div style="grid-column: span 2;">
+            <div class="field-group" style="grid-column: span 2;">
                 <label>Starting Products (Already Done)</label>
                 <input type="number" id="setupStartingProd" value="0" min="0" onclick="this.select()">
             </div>
-            <div style="grid-column: span 2;">
-                <label style="color:#fab387;">Custom Pallets (Pcs) - Optional</label>
-                <input type="text" id="setupCustomPallets" placeholder="e.g. 2000, 3000 (leave empty if standard)" onclick="this.select()">
+            
+            <div class="field-group" style="grid-column: span 2;">
+                <label style="color:#fab387;">Custom Pallets (Pcs) & Position</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="setupCustomPallets" placeholder="e.g. 2000, 3000 (leave empty if standard)" onclick="this.select()" style="flex: 2; margin-bottom: 0;">
+                    <select id="setupCustomPos" style="flex: 1; margin-bottom: 0;">
+                        <option value="end">At End</option>
+                        <option value="start">At Start</option>
+                    </select>
+                </div>
             </div>
         </div>
         <button class="btn-main" style="max-width: 300px;" onclick="createNewJobConfiguration()">Start & Save New Job</button>
@@ -162,8 +169,7 @@
                 <div class="section-frame">
                     <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
                     <div class="pallet-container" id="palletGrid">
-                        <!-- Γεμίζει από τη Javascript -->
-                    </div>
+                        </div>
                 </div>
 
                 <div class="section-frame">
@@ -303,6 +309,7 @@
         let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
 
         let customStr = document.getElementById('setupCustomPallets').value;
+        let customPos = document.getElementById('setupCustomPos').value; // 'start' ή 'end'
         let customArr = [];
         if (customStr.trim() !== "") {
             customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
@@ -314,7 +321,7 @@
         jobsDatabase[id] = {
             id: id, createdTime: timestamp, stationId: stId,
             batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
-            customPallets: customArr,
+            customPallets: customArr, customPos: customPos, // Αποθηκεύουμε array & position
             previousTotalProducts: sPr, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
             initialJobBoxesLock: initialBoxes,
@@ -343,7 +350,9 @@
 
         productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
         
+        // --- ΥΠΟΛΟΓΙΣΜΟΣ ΣΕΙΡΑΣ ΠΑΛΕΤΩΝ ΜΕ ΒΑΣΗ ΤΗΝ ΕΠΙΛΟΓΗ ---
         let customArr = job.customPallets || [];
+        let customPos = job.customPos || "end";
         let sumCustom = customArr.reduce((a, b) => a + b, 0);
         let standardPcs = Math.max(0, batchSize - sumCustom);
         
@@ -357,7 +366,12 @@
                 standardPcs = 0;
             }
         }
-        job.palletSequence = sequence.concat(customArr);
+        
+        if (customPos === "start") {
+            job.palletSequence = customArr.concat(sequence);
+        } else {
+            job.palletSequence = sequence.concat(customArr);
+        }
         
         let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
         let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
