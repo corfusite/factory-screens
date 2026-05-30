@@ -7,7 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; }
-        .container { background-color: #313244; padding: 20px 30px; border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); width: 98%; max-width: 1350px; box-sizing: border-box; }
+        .container { background-color: #313244; padding: 20px 30px; border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); width: 98%; max-width: 1350px; box-sizing: border-box; position: relative;}
         h1 { margin: 0 0 15px 0; color: #89b4fa; font-size: 2.2rem; text-align: center; }
         .voice-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #f9e2af; vertical-align: super; margin-left: 10px; }
         
@@ -65,6 +65,13 @@
         .btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
         .btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
 
+        /* Call Assistance Buttons */
+        .call-container { display: flex; gap: 10px; margin-top: 15px; }
+        .call-btn { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; color: #11111b; border: none; }
+        .call-supervisor { background-color: #f38ba8; }
+        .call-qa { background-color: #fab387; }
+        .call-eng { background-color: #89b4fa; }
+
         select, input { width: 100%; padding: 10px; background-color: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 1.2rem; box-sizing: border-box; margin-bottom: 10px; }
 
         .results-box { background-color: #313244; padding: 12px; border-radius: 8px; margin-top: 10px; border: 2px dashed #45475a; }
@@ -86,10 +93,25 @@
         .log-item.calc { color: #a6e3a1; }
         .log-item.check { color: #fab387; }
 
+        /* INCOMING MESSAGE MODAL */
+        .msg-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 9999; }
+        .msg-modal-box { background: #f38ba8; color: #11111b; padding: 40px; border-radius: 20px; text-align: center; max-width: 800px; width: 90%; box-shadow: 0 0 50px rgba(243, 139, 168, 0.6); animation: pulse 0.5s infinite alternate;}
+        .msg-modal-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; }
+        .msg-modal-text { font-size: 1.8rem; font-weight: bold; margin-bottom: 30px; font-family: monospace; background: rgba(17,17,27,0.1); padding: 20px; border-radius: 10px;}
+        .msg-ack-btn { background: #11111b; color: #f38ba8; font-size: 2rem; padding: 20px 40px; width: 100%; border-radius: 15px; }
+
         @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
     </style>
 </head>
 <body>
+
+<div class="msg-modal-overlay" id="msgOverlay">
+    <div class="msg-modal-box">
+        <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
+        <div class="msg-modal-text" id="msgOverlayText">...</div>
+        <button class="msg-ack-btn" onclick="acknowledgeSupervisorMessage()">ACKNOWLEDGE & RESUME</button>
+    </div>
+</div>
 
 <div class="container">
     <h1>Production Dashboard<span id="voiceIndicator" class="voice-indicator"></span></h1>
@@ -201,9 +223,15 @@
                             <tr><td>Boxes per Layer</td><td id="specBoxesPerLayer">-</td></tr>
                             <tr><td>Layers per Pallet</td><td id="specLayersPerPallet">-</td></tr>
                             <tr><td>Total Units per Pallet</td><td id="specUnitsPerPallet">-</td></tr>
-                            <tr><td>Initial Starting Products</td><td id="specStartingProd">-</td></tr>
                         </tbody>
                     </table>
+                    
+                    <div class="call-container">
+                        <button class="call-btn call-supervisor" onclick="sendHelpAlert('Supervisor')">Call Supervisor</button>
+                        <button class="call-btn call-qa" onclick="sendHelpAlert('QA')">Call QA</button>
+                        <button class="call-btn call-eng" onclick="sendHelpAlert('Engineer')">Call Engineer</button>
+                    </div>
+
                     <button class="btn-secondary" onclick="exitToJobList()">← Save & Back to Job List</button>
                 </div>
             </div>
@@ -248,8 +276,8 @@
                 </div>
             </div>
             <div class="section-frame">
-                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant</div>
-                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading...</option></select>
+                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant System</div>
+                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading voices...</option></select>
             </div>
         </div>
 
@@ -267,12 +295,8 @@
     const SERVER_URL = "https://my-factory-server.onrender.com";
 
     const STATION_NAMES = {
-        "1": "Line 1",
-        "2": "Line 2",
-        "3": "Line 3",
-        "4": "Line 4",
-        "5": "Pouch",
-        "6": "Powder Room"
+        "1": "Line 1", "2": "Line 2", "3": "Line 3",
+        "4": "Line 4", "5": "Pouch", "6": "Powder Room"
     };
 
     let activeJobId = null;
@@ -280,6 +304,10 @@
 
     let stationId = "1";
     let globalShiftTarget = 0; 
+    let localMessageRead = true; // Μνήμη του εργάτη για το αν διάβασε το μήνυμα
+    let pendingAlertAck = false; // Μνήμη ότι περιμένουμε απάντηση του επόπτη
+    let activeMessageInterval = null;
+    let radioWasPlayingBeforeMsg = false;
 
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
     let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
@@ -289,7 +317,7 @@
     let timer1EndTime, timer2EndTime, isRunning = false, isAlarmActive = false;
     let countdownInterval, alarmInterval, alarmMessage = "", wasRadioPlayingBeforeAlarm = false;
 
-    let hasEnglishVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
+    let hasVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
     let chartInstance = null, hourlyLabels = [], hourlyData = [], hourCounter = 0, savedLogsArray = [];
 
     const display1 = document.getElementById('display1'), display2 = document.getElementById('display2');
@@ -315,7 +343,6 @@
             listDiv.innerHTML = `<div style="color: #6c7086; font-style: italic; text-align: center; padding: 10px;">No saved jobs found. Create one below.</div>`;
             return;
         }
-
         listDiv.innerHTML = "";
         keys.forEach(id => {
             let job = jobsDatabase[id];
@@ -395,20 +422,12 @@
         
         let sequence = [];
         while (standardPcs > 0) {
-            if (standardPcs >= productsPerPallet) {
-                sequence.push(productsPerPallet);
-                standardPcs -= productsPerPallet;
-            } else {
-                sequence.push(standardPcs);
-                standardPcs = 0;
-            }
+            if (standardPcs >= productsPerPallet) { sequence.push(productsPerPallet); standardPcs -= productsPerPallet; } 
+            else { sequence.push(standardPcs); standardPcs = 0; }
         }
         
-        if (customPos === "start") {
-            job.palletSequence = customArr.concat(sequence);
-        } else {
-            job.palletSequence = sequence.concat(customArr);
-        }
+        if (customPos === "start") job.palletSequence = customArr.concat(sequence);
+        else job.palletSequence = sequence.concat(customArr);
         
         let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
         let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
@@ -418,8 +437,7 @@
         document.getElementById('specBoxesPerLayer').textContent = boxesPerLayer;
         document.getElementById('specLayersPerPallet').textContent = layersPerPallet;
         document.getElementById('specUnitsPerPallet').textContent = productsPerPallet.toLocaleString();
-        document.getElementById('specStartingProd').textContent = startingProducts.toLocaleString();
-
+        
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
@@ -434,35 +452,26 @@
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
-        buildPalletVisuals();
-        initChart();
-        updatePalletFills(initialCalculatedTotal);
+        buildPalletVisuals(); initChart(); updatePalletFills(initialCalculatedTotal);
         updateShiftGoalUI(initialCalculatedTotal - startingProducts);
         
         logList.innerHTML = "";
         savedLogsArray.forEach(logItem => {
             let li = document.createElement('li');
-            if (typeof logItem === 'string') {
-                li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`;
-            } else {
-                li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`;
-            }
+            if (typeof logItem === 'string') { li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`; } 
+            else { li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`; }
             logList.insertBefore(li, logList.firstChild);
         });
 
         timer1Remaining = job.timer1State !== undefined ? job.timer1State : TIME_30_MIN;
         timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
-        isRunning = false;
-        
-        updateDisplays(); 
+        isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
-        
         pollSupervisorTarget();
     }
 
     function saveActiveJobState() {
         if (!activeJobId || !jobsDatabase[activeJobId]) return;
-
         let curB = document.getElementById('currentBoxes').value;
         let curL = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
 
@@ -482,9 +491,7 @@
             t1 = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
             t2 = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
         }
-        jobsDatabase[activeJobId].timer1State = t1;
-        jobsDatabase[activeJobId].timer2State = t2;
-
+        jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2;
         saveDatabaseToStorage();
     }
 
@@ -499,10 +506,7 @@
 
     function exitToJobList() {
         if (isRunning) toggleTimers();
-        if (isAlarmActive) {
-            isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel();
-            dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
-        }
+        if (isAlarmActive) { isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; } }
         saveActiveJobState(); activeJobId = null;
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
         document.getElementById('mainDashboard').style.display = 'none';
@@ -512,29 +516,20 @@
 
     function buildPalletVisuals() {
         const grid = document.getElementById('palletGrid');
-        grid.style.display = 'flex';
-        grid.style.justifyContent = 'space-around';
-        grid.style.alignItems = 'center';
-        
+        grid.style.display = 'flex'; grid.style.justifyContent = 'space-around'; grid.style.alignItems = 'center';
         grid.innerHTML = `
             <div class="pallet-wrapper" style="width: 120px; text-align: center;">
                 <div style="font-size:1rem; color:#a6e3a1; margin-bottom:8px; font-weight:bold;">COMPLETED</div>
-                <div style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #a6e3a1; border-radius:10px;">
-                    <span id="val_completed" style="color:#a6e3a1; font-weight:900; font-size:2.5rem;">0</span>
-                </div>
+                <div style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #a6e3a1; border-radius:10px;"><span id="val_completed" style="color:#a6e3a1; font-weight:900; font-size:2.5rem;">0</span></div>
             </div>
-
             <div class="pallet-wrapper" style="width: 100px; text-align: center;">
                 <div class="pallet-percentage" id="pPct_active" style="font-size: 1.1rem; margin-bottom:5px;">0%</div>
                 <div class="pallet-icon" id="pIcon_active" style="width:60px; height:50px;"></div>
                 <div style="font-size:0.9rem; color:#fab387; margin-top:8px; font-weight:bold;">ACTIVE</div>
             </div>
-
             <div class="pallet-wrapper" style="width: 120px; text-align: center;">
                 <div style="font-size:1rem; color:#a6adc8; margin-bottom:8px; font-weight:bold;">REMAINING</div>
-                <div id="box_remaining" style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #45475a; border-radius:10px; transition: all 0.3s;">
-                    <span id="val_remaining" style="color:#a6adc8; font-weight:900; font-size:2.2rem;">0</span>
-                </div>
+                <div id="box_remaining" style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #45475a; border-radius:10px; transition: all 0.3s;"><span id="val_remaining" style="color:#a6adc8; font-weight:900; font-size:2.2rem;">0</span></div>
             </div>
         `;
     }
@@ -545,30 +540,18 @@
         let boxRemaining = document.getElementById('box_remaining');
         let activeIcon = document.getElementById('pIcon_active');
         let pctText = document.getElementById('pPct_active');
-        
         if (!valCompleted || !valRemaining || !activeIcon) return;
 
         let job = jobsDatabase[activeJobId];
-        let seq = job.palletSequence || [];
-        let totalPalletsTarget = seq.length;
-        
-        let tempTotal = currentTotal;
-        let completedPallets = 0;
-        let activePalletSize = productsPerPallet; 
+        let seq = job.palletSequence || []; let totalPalletsTarget = seq.length;
+        let tempTotal = currentTotal; let completedPallets = 0; let activePalletSize = productsPerPallet; 
         
         for (let i = 0; i < seq.length; i++) {
-            if (tempTotal >= seq[i]) {
-                completedPallets++;
-                tempTotal -= seq[i];
-            } else {
-                activePalletSize = seq[i];
-                break;
-            }
+            if (tempTotal >= seq[i]) { completedPallets++; tempTotal -= seq[i]; } 
+            else { activePalletSize = seq[i]; break; }
         }
 
-        let inactivePallets = 0;
-        let pct = 0;
-
+        let inactivePallets = 0; let pct = 0;
         if (currentTotal < batchSize) {
             let remainingWholePallets = totalPalletsTarget - completedPallets - 1; 
             if (remainingWholePallets < 0) remainingWholePallets = 0;
@@ -581,43 +564,26 @@
         
         if (currentTotal >= batchSize) {
             let extra = currentTotal - batchSize;
-            activeIcon.className = "pallet-icon full";
-            activeIcon.style.setProperty('--fill-level', '100%');
-            pctText.textContent = "100%";
-            pctText.style.color = "#a6e3a1";
-            boxRemaining.style.borderColor = "#a6e3a1";
-            valRemaining.style.color = "#a6e3a1";
-            if (extra > 0) {
-                valRemaining.style.fontSize = "1.2rem";
-                valRemaining.innerHTML = `DONE<br><span style="font-size:0.9rem; color:#f9e2af;">+${extra} EXTRA</span>`;
-            } else {
-                valRemaining.style.fontSize = "1.8rem";
-                valRemaining.textContent = "DONE";
-            }
+            activeIcon.className = "pallet-icon full"; activeIcon.style.setProperty('--fill-level', '100%');
+            pctText.textContent = "100%"; pctText.style.color = "#a6e3a1";
+            boxRemaining.style.borderColor = "#a6e3a1"; valRemaining.style.color = "#a6e3a1";
+            if (extra > 0) { valRemaining.style.fontSize = "1.2rem"; valRemaining.innerHTML = `DONE<br><span style="font-size:0.9rem; color:#f9e2af;">+${extra} EXTRA</span>`; } 
+            else { valRemaining.style.fontSize = "1.8rem"; valRemaining.textContent = "DONE"; }
         } else {
-            activeIcon.className = "pallet-icon";
-            activeIcon.style.setProperty('--fill-level', `${pct}%`);
-            pctText.textContent = `${pct}%`;
-            pctText.style.color = "#fab387";
-            boxRemaining.style.borderColor = "#45475a";
-            valRemaining.style.color = "#a6adc8";
-            valRemaining.style.fontSize = "2.2rem";
-            valRemaining.textContent = Number(inactivePallets.toFixed(2));
+            activeIcon.className = "pallet-icon"; activeIcon.style.setProperty('--fill-level', `${pct}%`);
+            pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
+            boxRemaining.style.borderColor = "#45475a"; valRemaining.style.color = "#a6adc8";
+            valRemaining.style.fontSize = "2.2rem"; valRemaining.textContent = Number(inactivePallets.toFixed(2));
         }
     }
 
     function updateShiftGoalUI(currentShiftProducts) {
         document.getElementById('displayShiftCurrent').textContent = currentShiftProducts.toLocaleString();
         document.getElementById('displayShiftTarget').textContent = globalShiftTarget.toLocaleString();
-        
         let pct = 0;
-        if(globalShiftTarget > 0) {
-            pct = Math.min(100, Math.floor((currentShiftProducts / globalShiftTarget) * 100));
-        }
-        
+        if(globalShiftTarget > 0) pct = Math.min(100, Math.floor((currentShiftProducts / globalShiftTarget) * 100));
         const bar = document.getElementById('shiftProgressBar');
-        bar.style.width = `${pct}%`;
-        bar.textContent = `${pct}%`;
+        bar.style.width = `${pct}%`; bar.textContent = `${pct}%`;
         bar.style.backgroundColor = pct >= 100 ? "#a6e3a1" : "#89b4fa";
     }
 
@@ -635,15 +601,12 @@
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
-        if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) {
-            document.getElementById('currentLoose').value = "0";
-        }
+        if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
     function calculateProduction() {
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
-        
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
 
@@ -659,36 +622,26 @@
         document.getElementById('resShiftTotal').textContent = totalShiftProducts;
         document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
 
-        updatePalletFills(newTotalProducts);
-        updateShiftGoalUI(totalShiftProducts);
-        
+        updatePalletFills(newTotalProducts); updateShiftGoalUI(totalShiftProducts);
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
 
-        let diffStr = difference >= 0 ? "+" + difference : difference;
-        let shiftName = getCurrentShift();
+        let diffStr = difference >= 0 ? "+" + difference : difference; let shiftName = getCurrentShift();
         addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${newTotalProducts} | Diff: ${diffStr} | ${shiftName} Total: ${totalShiftProducts} (${totalShiftBoxes} Boxes)`, 'calc');
 
         lastCalculatedBoxes = currentBoxes; lastCalculatedLoose = looseProducts; previousTotalProducts = newTotalProducts;
-
         saveActiveJobState(); 
 
         if (SERVER_URL && SERVER_URL.includes("http")) {
             fetch(`${SERVER_URL}/api/update_station`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    station_id: stationId,
-                    shift_boxes: totalShiftBoxes,
-                    shift_total: totalShiftProducts,
-                    completed_pallets: readyPallets 
-                })
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
             }).catch(err => console.error("Server Sync Error:", err));
         }
     }
 
-    // 🔥 ΑΥΤΟΜΑΤΗ ΙΑΣΗ (SELF-HEALING) ΓΙΑ ΤΑ ΠΡΟΪΟΝΤΑ ΤΟΥ ΕΡΓΑΤΗ 🔥
+    // 🔥 ΛΕΙΤΟΥΡΓΙΑ ΕΝΔΟΕΠΙΚΟΙΝΩΝΙΑΣ & SELF-HEALING 🔥
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
@@ -696,107 +649,159 @@
             const data = await res.json();
             
             if(data[stationId]) {
-                // Ενημερώνουμε τον Στόχο (αν άλλαξε)
                 globalShiftTarget = data[stationId].shift_target || 0;
                 let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
                 updateShiftGoalUI(currentLocalTotal);
                 
-                // ΕΛΕΓΧΟΣ: Μήπως ο Server έχασε τα νούμερα της παραγωγής μας;
                 let serverTotal = data[stationId].shift_total || 0;
-                
                 if (currentLocalTotal > 0 && serverTotal === 0) {
                     let job = jobsDatabase[activeJobId];
                     let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
                     let totalShiftBoxesToSend = curBoxes - (job ? job.initialJobBoxesLock : 0);
                     let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
-
                     fetch(`${SERVER_URL}/api/update_station`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            station_id: stationId,
-                            shift_boxes: totalShiftBoxesToSend,
-                            shift_total: currentLocalTotal,
-                            completed_pallets: readyPallets
-                        })
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ station_id: stationId, shift_boxes: totalShiftBoxesToSend, shift_total: currentLocalTotal, completed_pallets: readyPallets })
                     });
-                    console.log("Self-Healing: Production data restored to server automatically!");
+                }
+
+                // ΕΛΕΓΧΟΣ: Μήπως έχουμε νέο Μήνυμα;
+                let sMsg = data[stationId].supervisor_message;
+                let isRead = data[stationId].message_read;
+
+                if (sMsg !== "" && !isRead && localMessageRead) {
+                    localMessageRead = false; 
+                    triggerSupervisorMessage(sMsg);
+                }
+
+                // ΕΛΕΓΧΟΣ: Μήπως ο Επόπτης απάντησε στην κλήση μας;
+                let serverAcked = data[stationId].alert_acknowledged;
+                if (pendingAlertAck && serverAcked) {
+                    pendingAlertAck = false;
+                    playAckVoice(); 
                 }
             }
         } catch(e) {}
     }
-    // Ο έλεγχος και η ίαση γίνονται κάθε 5 δευτερόλεπτα αθόρυβα
-    setInterval(pollSupervisorTarget, 5000);
+    setInterval(pollSupervisorTarget, 4000);
+
+    // 🔥 Στέλνει Κλήση (Alert) στον Επόπτη
+    async function sendHelpAlert(type) {
+        try {
+            await fetch(`${SERVER_URL}/api/send_alert`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, alert: type })
+            });
+            pendingAlertAck = true;
+            addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
+            alert(`Call for ${type} sent to the Supervisor!`);
+        } catch (error) { alert("Connection Error!"); }
+    }
+
+    // 🔥 Όταν έρχεται μήνυμα
+    function triggerSupervisorMessage(msgText) {
+        document.getElementById('msgOverlay').style.display = 'flex';
+        document.getElementById('msgOverlayText').textContent = msgText;
+        
+        radioWasPlayingBeforeMsg = !radioAudio.paused;
+        stopRadio();
+        
+        let ttsText = `Message from Supervisor. ${msgText}. Please check your screen.`;
+        speakText(ttsText);
+        
+        activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000);
+    }
+
+    // 🔥 Όταν ο εργάτης πατάει ACKNOWLEDGE
+    async function acknowledgeSupervisorMessage() {
+        document.getElementById('msgOverlay').style.display = 'none';
+        clearInterval(activeMessageInterval);
+        window.speechSynthesis.cancel();
+        
+        localMessageRead = true;
+        
+        try {
+            await fetch(`${SERVER_URL}/api/read_message`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId })
+            });
+        } catch(e) {}
+
+        if (radioWasPlayingBeforeMsg) { startRadio(); radioWasPlayingBeforeMsg = false; }
+    }
+
+    // 🔥 Όταν ο Επόπτης απαντάει στην κλήση
+    function playAckVoice() {
+        let wasRadio = !radioAudio.paused;
+        stopRadio();
+        window.speechSynthesis.cancel();
+        let ut = new SpeechSynthesisUtterance("Your alert was acknowledged by the supervisor.");
+        let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
+        if (v) ut.voice = v;
+        
+        ut.onend = function() {
+            if (wasRadio) startRadio();
+        };
+        window.speechSynthesis.speak(ut);
+        addLogEntry(`✓ Supervisor acknowledged your call!`, 'check');
+    }
+
+    function speakText(text) {
+        if (!hasVoice) return;
+        window.speechSynthesis.cancel();
+        let ut = new SpeechSynthesisUtterance(text);
+        let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
+        if (v) ut.voice = v;
+        window.speechSynthesis.speak(ut);
+    }
 
     async function loadRadioStations() {
         const stationSelector = document.getElementById('stationSelector');
         stationSelector.innerHTML = "<option value=''>Loading UK stations...</option>";
-
         try {
             const response = await fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true');
             const stations = await response.json();
-
             stationSelector.innerHTML = "<option value=''>-- Select UK Station --</option>";
-            
             stations.forEach(station => {
                 if (station.url_resolved && station.name.trim() !== "") {
-                    let opt = document.createElement('option');
-                    opt.value = station.url_resolved;
-                    opt.textContent = station.name.trim();
+                    let opt = document.createElement('option'); opt.value = station.url_resolved; opt.textContent = station.name.trim();
                     stationSelector.appendChild(opt);
                 }
             });
-        } catch (error) {
-            console.error("Radio fetch error:", error);
-            stationSelector.innerHTML = "<option value=''>Failed to load radio stations</option>";
-        }
-    }
-
-    function addLogEntry(text, typeClass) {
-        if (logList.children.length === 1 && logList.children[0].style.fontStyle === 'italic') logList.innerHTML = "";
-        let stamp = getTimestamp();
-        savedLogsArray.push({ stamp: stamp, text: text, type: typeClass });
-        let li = document.createElement('li'); li.className = `log-item ${typeClass}`;
-        li.innerHTML = `<span style="color:#6c7086">${stamp}</span> <span>${text}</span>`;
-        logList.insertBefore(li, logList.firstChild);
-    }
-
-    function getTimestamp() {
-        let now = new Date();
-        return `[${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}]`;
+        } catch (error) {}
     }
 
     function loadAvailableVoices() {
-        if (!('speechSynthesis' in window)) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
+        if (!('speechSynthesis' in window)) { hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
         let voices = window.speechSynthesis.getVoices(); voiceSelector.innerHTML = "";
-        let englishVoices = voices.filter(v => v.lang.includes('en'));
-        if (englishVoices.length === 0) {
-            hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
+        if (voices.length === 0) {
+            hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
             let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)"; voiceSelector.appendChild(opt); return;
         }
-        hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
-        englishVoices.forEach(v => {
-            let opt = document.createElement('option'); opt.value = v.name; opt.textContent = v.name; voiceSelector.appendChild(opt);
+        hasVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
+        
+        // Show all voices available
+        voices.forEach(v => {
+            let opt = document.createElement('option'); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelector.appendChild(opt);
         });
+
         let savedVoice = localStorage.getItem('selected_work_voice');
-        if (savedVoice && englishVoices.some(v => v.name === savedVoice)) { voiceSelector.value = savedVoice; }
-        else { let susan = englishVoices.find(v => v.name.includes('Susan')); if (susan) voiceSelector.value = susan.name; }
+        if (savedVoice && voices.some(v => v.name === savedVoice)) { 
+            voiceSelector.value = savedVoice; 
+        } else {
+            // Try to default to a UK English voice if no preference is saved
+            let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK'));
+            if (ukVoice) voiceSelector.value = ukVoice.name;
+        }
     }
 
     function onVoiceChange() {
         localStorage.setItem('selected_work_voice', voiceSelector.value);
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel(); let ut = new SpeechSynthesisUtterance("Voice confirmed");
-            let selected = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
-            if (selected) ut.voice = selected; window.speechSynthesis.speak(ut);
-        }
+        if ('speechSynthesis' in window) { speakText("Voice test confirmed."); }
     }
 
     function toggleRadio() { if (!radioAudio.paused) { stopRadio(); } else { startRadio(); } }
-    function startRadio() {
-        let url = stationSelector.value;
-        if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; }
-    }
+    function startRadio() { let url = stationSelector.value; if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; } }
     function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
     function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
 
@@ -852,15 +857,14 @@
 
     function triggerAlertSound() {
         if (!isAlarmActive) return;
-        if (hasEnglishVoice && voiceSelector.value) {
-            window.speechSynthesis.cancel(); let ut = new SpeechSynthesisUtterance(alarmMessage); ut.rate = 0.9;
-            let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value); if (v) ut.voice = v; window.speechSynthesis.speak(ut);
+        if (hasVoice && voiceSelector.value) {
+            speakText(alarmMessage);
         } else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); }
     }
 
     function buildAlarmMessage(t1, t2) {
-        if (t1 && t2) alarmMessage = "Please check product and log hourly production";
-        else if (t1) alarmMessage = "Please check product"; else if (t2) alarmMessage = "Please log hourly production";
+        if (t1 && t2) alarmMessage = "Please check product and log hourly production.";
+        else if (t1) alarmMessage = "Please check product."; else if (t2) alarmMessage = "Please log hourly production.";
     }
 
     function triggerAlarm(t1, t2) {
@@ -893,7 +897,7 @@
     updateDisplays();
     
     if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } 
-    else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
+    else { hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
 </script>
 </body>
 </html>
