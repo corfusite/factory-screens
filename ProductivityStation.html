@@ -433,60 +433,61 @@
     function buildPalletVisuals() {
         const grid = document.getElementById('palletGrid');
         
-        // Αλλάζουμε το layout ώστε να κεντράρει όμορφα τις 2 παλέτες
+        // Καθαρίζουμε το παλιό CSS του πλέγματος και το κάνουμε κεντραρισμένο
         grid.style.display = 'flex';
-        grid.style.justifyContent = 'space-evenly';
+        grid.style.justifyContent = 'space-around';
         
         grid.innerHTML = `
-            <div class="pallet-wrapper" style="width: 130px;">
-                <div class="pallet-percentage" id="pPct_active">0%</div>
-                <div class="pallet-icon" id="pIcon_active"></div>
-                <div class="pallet-label" style="font-size:1.1rem; color:#a6e3a1; margin-top:8px;">
-                    ΕΤΟΙΜΕΣ<br><span id="val_completed" style="font-weight:bold; font-size:1.8rem; color:#a6e3a1;">0</span>
+            <div class="pallet-wrapper" style="width: 140px; text-align: center;">
+                <div style="font-size:1.1rem; color:#a6e3a1; margin-bottom:8px; font-weight:bold;">ΕΤΟΙΜΕΣ</div>
+                <div style="width:100px; height:80px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#a6e3a1; border-radius:10px; box-shadow: 0 0 15px rgba(166, 227, 161, 0.4);">
+                    <span id="val_completed" style="color:#11111b; font-weight:900; font-size:3rem;">0</span>
                 </div>
             </div>
-            <div class="pallet-wrapper" style="width: 130px;">
-                <div class="pallet-percentage" style="color:#6c7086;">ΣΤΟΧΟΣ</div>
-                <div class="pallet-icon" style="border-color:#45475a; background-color:#1e1e2e;"></div>
-                <div class="pallet-label" style="font-size:1.1rem; color:#a6adc8; margin-top:8px;">
-                    ΥΠΟΛΟΙΠΕΣ<br><span id="val_remaining" style="font-weight:bold; font-size:1.8rem; color:#f38ba8;">0</span>
+
+            <div class="pallet-wrapper" style="width: 140px; text-align: center;">
+                <div style="font-size:1.1rem; color:#a6adc8; margin-bottom:8px; font-weight:bold;">ΥΠΟΛΟΙΠΕΣ</div>
+                <div id="box_remaining" style="width:100px; height:80px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#313244; border:3px solid #45475a; border-radius:10px; transition: all 0.3s;">
+                    <span id="val_remaining" style="color:#a6adc8; font-weight:900; font-size:2.2rem;">0</span>
                 </div>
             </div>
         `;
     }
 
     function updatePalletFills(currentTotal) {
-        let activeIcon = document.getElementById('pIcon_active');
-        let pctText = document.getElementById('pPct_active');
-        if (!activeIcon) return;
+        let valCompleted = document.getElementById('val_completed');
+        let valRemaining = document.getElementById('val_remaining');
+        let boxRemaining = document.getElementById('box_remaining');
+        if (!valCompleted || !valRemaining) return;
 
-        // 1. Έτοιμες παλέτες (ολοκληρωμένες = ακέραιος αριθμός)
+        // Ακριβής συνολικός στόχος (π.χ. 4.58)
+        let exactTargetPallets = batchSize / productsPerPallet;
+        
+        // Οι "Έτοιμες" είναι ΜΟΝΟ οι πλήρως κλειστές παλέτες
         let completedPallets = Math.floor(currentTotal / productsPerPallet);
         
-        // 2. Υπόλοιπο παλετών με ακρίβεια
-        let exactRemaining = Math.max(0, (batchSize - currentTotal) / productsPerPallet);
+        // Οι "Υπόλοιπες" είναι ο αρχικός στόχος ΜΕΙΟΝ τις έτοιμες (π.χ. 4.58 - 1 = 3.58)
+        let inactivePallets = exactTargetPallets - completedPallets;
         
-        // 3. Ποσοστό γεμίσματος της "ενεργής" (τρέχουσας) παλέτας
-        let remainder = currentTotal % productsPerPallet;
-        let pct = Math.floor((remainder / productsPerPallet) * 100);
-
         if (currentTotal >= batchSize) {
-            activeIcon.className = "pallet-icon full";
-            activeIcon.style.setProperty('--fill-level', '100%');
-            pctText.textContent = "DONE";
-            pctText.style.color = "#a6e3a1";
-            document.getElementById('val_remaining').textContent = "0";
-        } else {
-            activeIcon.className = "pallet-icon";
-            activeIcon.style.setProperty('--fill-level', `${pct}%`);
-            pctText.textContent = `${pct}%`;
-            pctText.style.color = "#fab387";
-            
-            // Το Number() σβήνει αυτόματα τα άχρηστα μηδενικά (δηλ. το 4.00 γίνεται 4, ενώ το 4.58 μένει 4.58)
-            document.getElementById('val_remaining').textContent = Number(exactRemaining.toFixed(2));
+            inactivePallets = 0;
         }
 
-        document.getElementById('val_completed').textContent = completedPallets;
+        // Ενημέρωση των αριθμών (το Number() σβήνει τυχόν περιττά μηδενικά)
+        valCompleted.textContent = completedPallets;
+        valRemaining.textContent = Number(inactivePallets.toFixed(2));
+        
+        // Όταν πιάσεις τον στόχο, το γκρι κουτί ανάβει DONE
+        if (currentTotal >= batchSize) {
+            boxRemaining.style.borderColor = "#a6e3a1";
+            valRemaining.style.color = "#a6e3a1";
+            valRemaining.style.fontSize = "1.8rem";
+            valRemaining.textContent = "DONE";
+        } else {
+            boxRemaining.style.borderColor = "#45475a";
+            valRemaining.style.color = "#a6adc8";
+            valRemaining.style.fontSize = "2.2rem";
+        }
     }
 
     function initChart() {
