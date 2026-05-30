@@ -662,7 +662,6 @@
         updatePalletFills(newTotalProducts);
         updateShiftGoalUI(totalShiftProducts);
         
-        // 🔥 Διαβάζουμε πόσες παλέτες έχουν ετοιμαστεί
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
@@ -683,24 +682,50 @@
                     station_id: stationId,
                     shift_boxes: totalShiftBoxes,
                     shift_total: totalShiftProducts,
-                    completed_pallets: readyPallets // Στέλνει τις παλέτες στον Server
+                    completed_pallets: readyPallets 
                 })
-            }).then(res => console.log("Server Sync Success!")).catch(err => console.error("Server Sync Error:", err));
+            }).catch(err => console.error("Server Sync Error:", err));
         }
     }
 
+    // 🔥 ΑΥΤΟΜΑΤΗ ΙΑΣΗ (SELF-HEALING) ΓΙΑ ΤΑ ΠΡΟΪΟΝΤΑ ΤΟΥ ΕΡΓΑΤΗ 🔥
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
             const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
             const data = await res.json();
+            
             if(data[stationId]) {
+                // Ενημερώνουμε τον Στόχο (αν άλλαξε)
                 globalShiftTarget = data[stationId].shift_target || 0;
-                let currentTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
-                updateShiftGoalUI(currentTotal);
+                let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+                updateShiftGoalUI(currentLocalTotal);
+                
+                // ΕΛΕΓΧΟΣ: Μήπως ο Server έχασε τα νούμερα της παραγωγής μας;
+                let serverTotal = data[stationId].shift_total || 0;
+                
+                if (currentLocalTotal > 0 && serverTotal === 0) {
+                    let job = jobsDatabase[activeJobId];
+                    let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
+                    let totalShiftBoxesToSend = curBoxes - (job ? job.initialJobBoxesLock : 0);
+                    let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+
+                    fetch(`${SERVER_URL}/api/update_station`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            station_id: stationId,
+                            shift_boxes: totalShiftBoxesToSend,
+                            shift_total: currentLocalTotal,
+                            completed_pallets: readyPallets
+                        })
+                    });
+                    console.log("Self-Healing: Production data restored to server automatically!");
+                }
             }
-        } catch(e) { console.error(e); }
+        } catch(e) {}
     }
+    // Ο έλεγχος και η ίαση γίνονται κάθε 5 δευτερόλεπτα αθόρυβα
     setInterval(pollSupervisorTarget, 5000);
 
     async function loadRadioStations() {
