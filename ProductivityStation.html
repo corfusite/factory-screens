@@ -38,6 +38,12 @@
         .timer-label { font-size: 1.2rem; color: #a6adc8; font-weight: 600; }
         .timer-display { font-size: 3.2rem; font-weight: bold; font-family: monospace; color: #fff; }
 
+        /* Shift Progress Bar */
+        .shift-goal-container { margin-top: 5px; padding: 15px; background: #11111b; border-radius: 10px; border: 1px dashed #89b4fa; }
+        .shift-goal-title { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px; }
+        .shift-goal-track { background: #313244; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
+        .shift-goal-fill { background: #89b4fa; height: 100%; width: 0%; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; box-sizing: border-box; color:#11111b; font-weight:bold; font-size:0.8rem;}
+
         /* Pallets */
         .pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; }
         .pallet-wrapper { text-align: center; width: 70px; }
@@ -102,7 +108,6 @@
         
         <div style="width: 100%; max-width: 600px; margin-bottom: 10px;">
             <label style="color:#a6adc8; font-weight:bold;">Select Station:</label>
-            <!-- 🔥 ΤΑ ΝΕΑ ΟΝΟΜΑΤΑ ΣΤΑΘΜΩΝ ΕΔΩ 🔥 -->
             <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
                 <option value="1">Line 1</option>
                 <option value="2">Line 2</option>
@@ -167,11 +172,22 @@
                 <button id="startPauseBtn" class="btn-main" onclick="toggleTimers()">Start Timers</button>
                 <button id="dismissBtn" class="btn-alarm" onclick="dismissAlarm()">Dismiss Alarm & Continue</button>
 
+                <!-- 🔥 ΝΕΑ ΜΠΑΡΑ ΣΤΟΧΟΥ ΒΑΡΔΙΑΣ 🔥 -->
+                <div class="section-frame">
+                    <div class="shift-goal-container">
+                        <div class="shift-goal-title">
+                            <span>Supervisor Shift Goal</span>
+                            <span style="color:#cdd6f4;"><span id="displayShiftCurrent">0</span> / <span id="displayShiftTarget" style="color:#fab387;">0</span></span>
+                        </div>
+                        <div class="shift-goal-track">
+                            <div class="shift-goal-fill" id="shiftProgressBar">0%</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="section-frame">
                     <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
-                    <div class="pallet-container" id="palletGrid">
-                        <!-- Γεμίζει από τη Javascript -->
-                    </div>
+                    <div class="pallet-container" id="palletGrid"></div>
                 </div>
 
                 <div class="section-frame">
@@ -251,7 +267,6 @@
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
 
-    // 🔥 ΛΕΞΙΚΟ ΟΝΟΜΑΤΩΝ ΣΤΑΘΜΩΝ 🔥
     const STATION_NAMES = {
         "1": "Line 1",
         "2": "Line 2",
@@ -265,6 +280,8 @@
     let jobsDatabase = {};
 
     let stationId = "1";
+    let globalShiftTarget = 0; // Αποθηκεύει τον στόχο του επόπτη
+
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
     let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
 
@@ -421,6 +438,7 @@
         buildPalletVisuals();
         initChart();
         updatePalletFills(initialCalculatedTotal);
+        updateShiftGoalUI(initialCalculatedTotal - startingProducts);
         
         logList.innerHTML = "";
         savedLogsArray.forEach(logItem => {
@@ -439,6 +457,9 @@
         
         updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+        
+        // Άμεση κλήση στον Server για να πάρει τον στόχο βάρδιας
+        pollSupervisorTarget();
     }
 
     function saveActiveJobState() {
@@ -493,7 +514,6 @@
 
     function buildPalletVisuals() {
         const grid = document.getElementById('palletGrid');
-        
         grid.style.display = 'flex';
         grid.style.justifyContent = 'space-around';
         grid.style.alignItems = 'center';
@@ -554,10 +574,8 @@
         if (currentTotal < batchSize) {
             let remainingWholePallets = totalPalletsTarget - completedPallets - 1; 
             if (remainingWholePallets < 0) remainingWholePallets = 0;
-            
             let activePalletRemainingFraction = (activePalletSize - tempTotal) / activePalletSize;
             inactivePallets = remainingWholePallets + activePalletRemainingFraction;
-            
             pct = Math.floor((tempTotal / activePalletSize) * 100);
         }
 
@@ -565,12 +583,10 @@
         
         if (currentTotal >= batchSize) {
             let extra = currentTotal - batchSize;
-            
             activeIcon.className = "pallet-icon full";
             activeIcon.style.setProperty('--fill-level', '100%');
             pctText.textContent = "100%";
             pctText.style.color = "#a6e3a1";
-
             boxRemaining.style.borderColor = "#a6e3a1";
             valRemaining.style.color = "#a6e3a1";
             if (extra > 0) {
@@ -585,12 +601,27 @@
             activeIcon.style.setProperty('--fill-level', `${pct}%`);
             pctText.textContent = `${pct}%`;
             pctText.style.color = "#fab387";
-
             boxRemaining.style.borderColor = "#45475a";
             valRemaining.style.color = "#a6adc8";
             valRemaining.style.fontSize = "2.2rem";
             valRemaining.textContent = Number(inactivePallets.toFixed(2));
         }
+    }
+
+    // Ενημέρωση της Μπάρας Στόχου Βάρδιας (Shift Target)
+    function updateShiftGoalUI(currentShiftProducts) {
+        document.getElementById('displayShiftCurrent').textContent = currentShiftProducts.toLocaleString();
+        document.getElementById('displayShiftTarget').textContent = globalShiftTarget.toLocaleString();
+        
+        let pct = 0;
+        if(globalShiftTarget > 0) {
+            pct = Math.min(100, Math.floor((currentShiftProducts / globalShiftTarget) * 100));
+        }
+        
+        const bar = document.getElementById('shiftProgressBar');
+        bar.style.width = `${pct}%`;
+        bar.textContent = `${pct}%`;
+        bar.style.backgroundColor = pct >= 100 ? "#a6e3a1" : "#89b4fa";
     }
 
     function initChart() {
@@ -632,6 +663,7 @@
         document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
 
         updatePalletFills(newTotalProducts);
+        updateShiftGoalUI(totalShiftProducts);
 
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
 
@@ -655,6 +687,21 @@
             }).then(res => console.log("Server Sync Success!")).catch(err => console.error("Server Sync Error:", err));
         }
     }
+
+    // 🔥 ΡΩΤΑΕΙ ΤΟΝ SERVER ΓΙΑ ΤΟΝ ΣΤΟΧΟ ΚΑΘΕ 5 ΔΕΥΤΕΡΟΛΕΠΤΑ 🔥
+    async function pollSupervisorTarget() {
+        if(!activeJobId || !stationId) return;
+        try {
+            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
+            const data = await res.json();
+            if(data[stationId]) {
+                globalShiftTarget = data[stationId].shift_target || 0;
+                let currentTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+                updateShiftGoalUI(currentTotal);
+            }
+        } catch(e) { console.error(e); }
+    }
+    setInterval(pollSupervisorTarget, 5000);
 
     async function loadRadioStations() {
         const stationSelector = document.getElementById('stationSelector');
