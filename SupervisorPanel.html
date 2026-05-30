@@ -8,7 +8,6 @@
         body { font-family: 'Segoe UI', sans-serif; background-color: #11111b; color: #cdd6f4; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
         h1 { color: #89b4fa; text-align: center; margin-bottom: 10px; font-size: 2.5rem; }
         
-        /* Global Progress Bar */
         .global-panel { background-color: #1e1e2e; border: 2px solid #89b4fa; border-radius: 15px; padding: 20px; width: 100%; max-width: 1200px; margin-bottom: 30px; box-sizing: border-box; text-align: center; }
         .global-title { font-size: 1.5rem; color: #f9e2af; font-weight: bold; margin-bottom: 10px; }
         .global-stats { font-size: 1.2rem; color: #cdd6f4; margin-bottom: 15px; font-family: monospace; }
@@ -16,9 +15,8 @@
         .progress-track { background-color: #313244; height: 25px; border-radius: 15px; width: 100%; overflow: hidden; border: 1px solid #45475a; position: relative; }
         .progress-fill { background-color: #a6e3a1; height: 100%; width: 0%; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; box-sizing: border-box; font-weight: bold; color: #11111b; font-size: 0.9rem;}
         
-        /* Station Cards */
         .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; width: 100%; max-width: 1200px; }
-        .station-card { background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.3s; display: flex; flex-direction: column; }
+        .station-card { background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); transition: all 0.3s; display: flex; flex-direction: column; position: relative;}
         .station-card.online { border-color: #a6e3a1; }
         .station-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #313244; padding-bottom: 10px; margin-bottom: 15px; }
         .station-name { font-size: 1.5rem; font-weight: bold; color: #f9e2af; }
@@ -29,16 +27,24 @@
         .data-value { font-family: monospace; font-weight: bold; font-size: 1.5rem; color: #fab387; }
         .last-update { font-size: 0.8rem; color: #6c7086; text-align: right; margin-top: 15px; font-style: italic; }
         
-        /* Target Inputs */
-        .target-container { display: flex; gap: 10px; margin-top: 15px; border-top: 1px dashed #45475a; padding-top: 15px; }
-        .target-input { flex: 1; padding: 8px; background-color: #11111b; border: 1px solid #6c7086; color: white; border-radius: 5px; font-size: 1rem; }
-        .target-btn { background-color: #89b4fa; color: #11111b; border: none; padding: 8px 15px; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        .target-btn:hover { background-color: #b4befe; }
+        .target-container, .msg-container { display: flex; gap: 5px; margin-top: 15px; border-top: 1px dashed #45475a; padding-top: 15px; }
+        .custom-input { flex: 1; padding: 8px; background-color: #11111b; border: 1px solid #6c7086; color: white; border-radius: 5px; font-size: 0.9rem; }
+        .custom-btn { background-color: #89b4fa; color: #11111b; border: none; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; }
+        .custom-btn:hover { background-color: #b4befe; }
+
+        /* Alerts & Messages */
+        .msg-status { font-size: 0.8rem; margin-top: 5px; text-align: right; font-style: italic; }
+        .msg-status.unread { color: #fab387; }
+        .msg-status.read { color: #a6e3a1; }
         
-        /* Mini Progress */
+        .worker-alert-box { background-color: #f38ba8; color: #11111b; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; font-weight: bold; display: none; animation: pulse 1s infinite alternate; }
+        .ack-btn { background-color: #11111b; color: #f38ba8; border: 2px solid #11111b; padding: 8px; border-radius: 5px; cursor: pointer; font-weight: bold; margin-top: 10px; width: 100%;}
+        
         .mini-progress-track { background-color: #313244; height: 12px; border-radius: 5px; width: 100%; margin-top: 10px; overflow: hidden; position: relative;}
         .mini-progress-fill { background-color: #89b4fa; height: 100%; width: 0%; transition: width 0.3s; }
         .mini-pct { position: absolute; right: 5px; top: -2px; font-size: 0.7rem; color: #fff; font-weight: bold; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
     </style>
 </head>
 <body>
@@ -60,6 +66,7 @@
     const SERVER_URL = "https://my-factory-server.onrender.com";
     
     const STATION_NAMES = ["", "Line 1", "Line 2", "Line 3", "Line 4", "Pouch", "Powder Room"];
+    let localTargetsDB = JSON.parse(localStorage.getItem('supervisor_targets_db')) || {};
 
     function createEmptyCards() {
         const grid = document.getElementById('supervisorGrid');
@@ -67,20 +74,30 @@
         for (let i = 1; i <= 6; i++) {
             grid.innerHTML += `
                 <div class="station-card" id="card-${i}">
+                    <div id="worker-alert-${i}" class="worker-alert-box">
+                        ⚠️ WORKER CALL: <span id="alert-type-${i}"></span>
+                        <button class="ack-btn" onclick="ackAlert(${i})">Acknowledge Alert</button>
+                    </div>
+
                     <div class="station-header">
                         <div class="station-name">${STATION_NAMES[i]}</div>
                         <div class="status-badge status-offline" id="status-${i}">Offline</div>
                     </div>
                     <div class="data-row"><span>Ready Pallets:</span> <span class="data-value" id="pallets-${i}" style="color:#a6e3a1; font-size: 1.8rem;">0</span></div>
-                    <div class="data-row"><span>Shift Boxes:</span> <span class="data-value" id="boxes-${i}">0</span></div>
                     <div class="data-row"><span>Shift Pieces:</span> <span class="data-value" id="pieces-${i}">0</span></div>
                     
                     <div class="target-container">
-                        <input type="number" id="input-target-${i}" class="target-input" placeholder="Set Shift Target...">
-                        <button class="target-btn" onclick="setStationTarget(${i})">Set</button>
+                        <input type="number" id="input-target-${i}" class="custom-input" placeholder="Shift Target...">
+                        <button class="custom-btn" onclick="setStationTarget(${i})">Set</button>
                     </div>
                     
-                    <div style="font-size: 0.9rem; color: #a6adc8; margin-top: 10px; display:flex; justify-content:space-between;">
+                    <div class="msg-container">
+                        <input type="text" id="input-msg-${i}" class="custom-input" placeholder="Message worker...">
+                        <button class="custom-btn" onclick="sendMsg(${i})">Send</button>
+                    </div>
+                    <div id="msg-status-${i}" class="msg-status"></div>
+                    
+                    <div style="font-size: 0.9rem; color: #a6adc8; margin-top: 15px; display:flex; justify-content:space-between;">
                         <span>Target: <strong id="disp-target-${i}">0</strong></span>
                     </div>
                     <div class="mini-progress-track">
@@ -97,19 +114,46 @@
     async function setStationTarget(stationId) {
         const val = document.getElementById(`input-target-${stationId}`).value;
         if(val === "") return;
-        
         const targetNum = parseInt(val);
+        localTargetsDB[stationId] = targetNum;
+        localStorage.setItem('supervisor_targets_db', JSON.stringify(localTargetsDB));
         try {
             await fetch(`${SERVER_URL}/api/set_target`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ station_id: stationId, target: targetNum })
             });
             document.getElementById(`input-target-${stationId}`).value = "";
             fetchServerData();
-        } catch (error) {
-            console.error("Error setting target:", error);
-        }
+        } catch (error) {}
+    }
+
+    async function restoreTargetOnServer(stationId, targetNum) {
+        try { await fetch(`${SERVER_URL}/api/set_target`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, target: targetNum }) }); } catch(e) {}
+    }
+
+    // Αποστολή Μηνύματος
+    async function sendMsg(stationId) {
+        const msg = document.getElementById(`input-msg-${stationId}`).value;
+        if(msg === "") return;
+        try {
+            await fetch(`${SERVER_URL}/api/send_message`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, message: msg })
+            });
+            document.getElementById(`input-msg-${stationId}`).value = "";
+            fetchServerData();
+        } catch (error) {}
+    }
+
+    // Απάντηση στην κλήση εργάτη
+    async function ackAlert(stationId) {
+        try {
+            await fetch(`${SERVER_URL}/api/ack_alert`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId })
+            });
+            fetchServerData();
+        } catch (error) {}
     }
 
     async function fetchServerData() {
@@ -117,58 +161,72 @@
             const response = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
             const data = await response.json();
 
-            let globalTotal = 0;
-            let globalTarget = 0;
+            let globalTotal = 0; let globalTarget = 0;
 
             for (let i = 1; i <= 6; i++) {
                 const stationData = data[i.toString()];
                 if (stationData) {
                     const currentTotal = stationData.shift_total || 0;
-                    const shiftTarget = stationData.shift_target || 0;
+                    let shiftTarget = stationData.shift_target || 0;
                     
-                    document.getElementById(`boxes-${i}`).textContent = stationData.shift_boxes;
+                    if (shiftTarget === 0 && localTargetsDB[i] > 0) {
+                        restoreTargetOnServer(i, localTargetsDB[i]);
+                        shiftTarget = localTargetsDB[i]; 
+                    }
+
                     document.getElementById(`pieces-${i}`).textContent = currentTotal;
                     document.getElementById(`pallets-${i}`).textContent = stationData.completed_pallets || 0;
                     document.getElementById(`disp-target-${i}`).textContent = shiftTarget;
                     document.getElementById(`time-${i}`).textContent = stationData.last_update;
                     
                     let pct = 0;
-                    if(shiftTarget > 0) {
-                        pct = Math.min(100, Math.floor((currentTotal / shiftTarget) * 100));
-                    }
+                    if(shiftTarget > 0) pct = Math.min(100, Math.floor((currentTotal / shiftTarget) * 100));
                     document.getElementById(`bar-${i}`).style.width = pct + "%";
                     document.getElementById(`pct-${i}`).textContent = pct + "%";
-                    
                     document.getElementById(`bar-${i}`).style.backgroundColor = pct >= 100 ? "#a6e3a1" : "#89b4fa";
 
                     const card = document.getElementById(`card-${i}`);
                     const badge = document.getElementById(`status-${i}`);
-                    
                     if (stationData.status === "Online") {
                         card.classList.add('online');
-                        badge.className = 'status-badge status-online';
-                        badge.textContent = 'Online';
+                        badge.className = 'status-badge status-online'; badge.textContent = 'Online';
                     }
 
-                    globalTotal += currentTotal;
-                    globalTarget += shiftTarget;
+                    // Εμφάνιση κατάστασης μηνύματος
+                    const msgStatus = document.getElementById(`msg-status-${i}`);
+                    if (stationData.supervisor_message !== "") {
+                        if (!stationData.message_read) {
+                            msgStatus.textContent = "Delivered (Unread)"; msgStatus.className = "msg-status unread";
+                        } else {
+                            msgStatus.textContent = "Read by Worker ✓"; msgStatus.className = "msg-status read";
+                        }
+                    } else {
+                        msgStatus.textContent = "";
+                    }
+
+                    // Εμφάνιση Alert από τον εργάτη
+                    const alertBox = document.getElementById(`worker-alert-${i}`);
+                    if (stationData.worker_alert !== "" && !stationData.alert_acknowledged) {
+                        alertBox.style.display = "block";
+                        document.getElementById(`alert-type-${i}`).textContent = stationData.worker_alert.toUpperCase();
+                        card.style.borderColor = "#f38ba8";
+                    } else {
+                        alertBox.style.display = "none";
+                        if(stationData.status === "Online") card.style.borderColor = "#a6e3a1";
+                    }
+
+                    globalTotal += currentTotal; globalTarget += shiftTarget;
                 }
             }
 
             document.getElementById('global-current').textContent = globalTotal.toLocaleString();
             document.getElementById('global-target').textContent = globalTarget.toLocaleString();
-            
             let globalPct = 0;
-            if(globalTarget > 0) {
-                globalPct = Math.min(100, Math.floor((globalTotal / globalTarget) * 100));
-            }
+            if(globalTarget > 0) globalPct = Math.min(100, Math.floor((globalTotal / globalTarget) * 100));
             const gBar = document.getElementById('global-bar');
-            gBar.style.width = globalPct + "%";
-            gBar.textContent = globalPct + "%";
+            gBar.style.width = globalPct + "%"; gBar.textContent = globalPct + "%";
             
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        }
+        } catch (error) {}
     }
 
     createEmptyCards();
