@@ -1,4 +1,462 @@
-function buildPalletVisuals() {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; }
+        .container { background-color: #313244; padding: 20px 30px; border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); width: 98%; max-width: 1350px; box-sizing: border-box; }
+        h1 { margin: 0 0 15px 0; color: #89b4fa; font-size: 2.2rem; text-align: center; }
+        .voice-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #f9e2af; vertical-align: super; margin-left: 10px; }
+        
+        /* Setup Screen */
+        .setup-screen { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; }
+        .setup-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 600px; }
+        .setup-grid div { display: flex; flex-direction: column; }
+        .setup-grid label { font-size: 1rem; margin-bottom: 5px; color: #a6adc8; font-weight: 600; }
+        
+        .job-list-container { width: 100%; max-width: 600px; background-color: #11111b; border-radius: 12px; padding: 15px; box-sizing: border-box; }
+        .job-list-title { font-size: 1.2rem; font-weight: bold; color: #89b4fa; margin-bottom: 10px; border-bottom: 1px solid #45475a; padding-bottom: 5px; }
+        .job-item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #313244; gap: 10px; }
+        .job-item-row:last-child { border-bottom: none; }
+        .job-info-text { font-size: 1rem; color: #cdd6f4; cursor: pointer; flex: 1; }
+        .job-info-text:hover { color: #a6e3a1; font-weight: bold; }
+
+        /* Main Dashboard Workspace */
+        .main-dashboard { display: none; }
+        .main-grid { display: flex; gap: 20px; align-items: flex-start; }
+        .left-column { flex: 1.2; display: flex; flex-direction: column; gap: 15px; }
+        .right-column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        .section-frame { background-color: #1e1e2e; padding: 18px; border-radius: 12px; border: 2px solid #45475a; box-sizing: border-box; }
+        
+        /* Timers */
+        .timers-row { display: flex; gap: 15px; }
+        .timer-box { flex: 1; background-color: #45475a; padding: 12px; border-radius: 10px; border-left: 8px solid #a6adc8; text-align: center; }
+        .timer-box.secondary { border-left-color: #fab387; }
+        .timer-label { font-size: 1.2rem; color: #a6adc8; font-weight: 600; }
+        .timer-display { font-size: 3.2rem; font-weight: bold; font-family: monospace; color: #fff; }
+
+        /* Pallets */
+        .pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; }
+        .pallet-wrapper { text-align: center; width: 70px; }
+        .pallet-percentage { font-size: 0.9rem; font-weight: bold; color: #fab387; height: 15px; margin-bottom: 2px; font-family: monospace; }
+        .pallet-icon { width: 50px; height: 45px; background-color: #313244; border: 3px solid #6c7086; border-radius: 6px; position: relative; margin: 0 auto; transition: all 0.3s; }
+        .pallet-icon.full { background-color: #a6e3a1; border-color: #a6e3a1; box-shadow: 0 0 10px rgba(166, 227, 161, 0.4); }
+        .pallet-icon::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: var(--fill-level, 0%); background-color: #a6e3a1; transition: height 0.3s; border-radius: 0 0 3px 3px; }
+        
+        /* Tables & Buttons */
+        .specs-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 1rem; background-color: #11111b; border-radius: 8px; overflow: hidden; }
+        .specs-table th, .specs-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #313244; }
+        .specs-table th { background-color: #313244; color: #89b4fa; font-weight: bold; }
+        .specs-table td { color: #cdd6f4; font-family: monospace; font-size: 1.1rem; }
+
+        button { padding: 12px 20px; font-size: 1.3rem; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+        .btn-main { background-color: #a6e3a1; color: #11111b; width: 100%; }
+        .btn-main.paused { background-color: #f9e2af; }
+        .btn-alarm { background-color: #f38ba8; color: #11111b; width: 100%; display: none; font-size: 1.5rem; padding: 15px; margin-top: 10px; animation: pulse 0.5s infinite alternate; box-shadow: 0 0 20px #f38ba8; }
+        .btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
+        .btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
+
+        select, input { width: 100%; padding: 10px; background-color: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 1.2rem; box-sizing: border-box; margin-bottom: 10px; }
+
+        .results-box { background-color: #313244; padding: 12px; border-radius: 8px; margin-top: 10px; border: 2px dashed #45475a; }
+        .result-row { display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 6px; }
+        .result-row.shift-total { color: #b4befe; font-weight: bold; border-top: 1px dashed #45475a; padding-top: 6px; }
+        .result-row.highlight { flex-direction: column; align-items: center; border-top: 2px solid #45475a; padding-top: 8px; margin-top: 10px; font-weight: bold; }
+        .result-row.highlight span:last-child { font-size: 3rem; color: #a6e3a1; font-family: monospace; font-weight: 900; }
+
+        .bottom-controls { display: flex; gap: 15px; margin-top: 15px; }
+        .bottom-controls .section-frame { flex: 1; padding: 12px 20px; }
+        .radio-container { display: flex; align-items: center; gap: 10px; }
+        .radio-container select { margin-bottom: 0; flex: 1; height: 42px; }
+        .radio-container button { height: 42px; padding: 0 20px; font-size: 1.1rem; }
+
+        .log-container { margin-top: 15px; background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 12px; padding: 15px; max-height: 180px; overflow-y: auto; }
+        .log-title { font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 5px; border-bottom: 1px solid #45475a; }
+        .log-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 1.1rem; }
+        .log-item { padding: 4px 5px; border-bottom: 1px solid #313244; display: flex; gap: 10px; }
+        .log-item.calc { color: #a6e3a1; }
+        .log-item.check { color: #fab387; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Production Dashboard<span id="voiceIndicator" class="voice-indicator"></span></h1>
+    
+    <div id="setupScreen" class="setup-screen section-frame">
+        <h2 style="color: #fab387; margin: 0;">Job Management & Station Setup</h2>
+        
+        <div class="job-list-container">
+            <div class="job-list-title">Saved Active Jobs List</div>
+            <div id="savedJobsList">
+                <div style="color: #6c7086; font-style: italic; text-align: center; padding: 10px;">No saved jobs found. Create one below.</div>
+            </div>
+        </div>
+
+        <h3 style="color: #89b4fa; margin: 10px 0 0 0;">Create New Production Job</h3>
+        
+        <div style="width: 100%; max-width: 600px; margin-bottom: 10px;">
+            <label style="color:#a6adc8; font-weight:bold;">Select Station ID:</label>
+            <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
+                <option value="1">Station 1</option>
+                <option value="2">Station 2</option>
+                <option value="3">Station 3</option>
+                <option value="4">Station 4</option>
+                <option value="5">Station 5</option>
+                <option value="6">Station 6</option>
+            </select>
+        </div>
+
+        <div class="setup-grid">
+            <div>
+                <label>Batch Size (Total Units)</label>
+                <input type="number" id="setupBatchSize" value="30000" min="0" onclick="this.select()">
+            </div>
+            <div>
+                <label>Products per Box</label>
+                <input type="number" id="setupProdPerBox" value="6" min="1" onclick="this.select()">
+            </div>
+            <div>
+                <label>Boxes per Layer</label>
+                <input type="number" id="setupBoxesPerLayer" value="72" min="1" onclick="this.select()">
+            </div>
+            <div>
+                <label>Layers per Pallet</label>
+                <input type="number" id="setupLayersPerPallet" value="12" min="1" onclick="this.select()">
+            </div>
+            <div style="grid-column: span 2;">
+                <label>Starting Products (Already Done)</label>
+                <input type="number" id="setupStartingProd" value="0" min="0" onclick="this.select()">
+            </div>
+            <div style="grid-column: span 2;">
+                <label style="color:#fab387;">Custom Pallets (Pcs) - Optional</label>
+                <input type="text" id="setupCustomPallets" placeholder="e.g. 2000, 3000 (leave empty if standard)" onclick="this.select()">
+            </div>
+        </div>
+        <button class="btn-main" style="max-width: 300px;" onclick="createNewJobConfiguration()">Start & Save New Job</button>
+    </div>
+
+    <div id="mainDashboard" class="main-dashboard">
+        <div class="main-grid">
+            
+            <div class="left-column">
+                <div class="timers-row">
+                    <div class="timer-box">
+                        <div class="timer-label">Product check</div>
+                        <div id="display1" class="timer-display">30:00</div>
+                    </div>
+                    <div class="timer-box secondary">
+                        <div class="timer-label">Hourly booking</div>
+                        <div id="display2" class="timer-display">01:00:00</div>
+                    </div>
+                </div>
+                
+                <button id="startPauseBtn" class="btn-main" onclick="toggleTimers()">Start Timers</button>
+                <button id="dismissBtn" class="btn-alarm" onclick="dismissAlarm()">Dismiss Alarm & Continue</button>
+
+                <div class="section-frame">
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
+                    <div class="pallet-container" id="palletGrid">
+                        <!-- Γεμίζει από τη Javascript -->
+                    </div>
+                </div>
+
+                <div class="section-frame">
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications (<span id="activeStationDisplay" style="color:#f9e2af;"></span>)</div>
+                    <table class="specs-table">
+                        <thead>
+                            <tr><th>Parameter</th><th>Value</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Total Batch Target (Units)</td><td id="specBatchSize">-</td></tr>
+                            <tr><td>Products per Box</td><td id="specProdPerBox">-</td></tr>
+                            <tr><td>Boxes per Layer</td><td id="specBoxesPerLayer">-</td></tr>
+                            <tr><td>Layers per Pallet</td><td id="specLayersPerPallet">-</td></tr>
+                            <tr><td>Total Units per Pallet</td><td id="specUnitsPerPallet">-</td></tr>
+                            <tr><td>Initial Starting Products</td><td id="specStartingProd">-</td></tr>
+                        </tbody>
+                    </table>
+                    <button class="btn-secondary" onclick="exitToJobList()">← Save & Back to Job List</button>
+                </div>
+            </div>
+
+            <div class="right-column">
+                <div class="section-frame" style="border-color: #fab387;">
+                    <div style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label style="font-weight: bold; color: #fab387;">Current Total Boxes</label>
+                            <input type="number" id="currentBoxes" placeholder="Boxes..." min="0" onclick="this.select()" oninput="checkBoxesChange()">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="font-weight: bold; color: #b4befe;">Loose Products (Pcs)</label>
+                            <input type="number" id="currentLoose" value="0" min="0" onclick="this.select()">
+                        </div>
+                    </div>
+
+                    <button class="btn-main" style="background-color: #fab387; margin-bottom: 10px;" onclick="calculateProduction()">Calculate Production</button>
+
+                    <div class="results-box">
+                        <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
+                        <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
+                        <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
+                        <div class="result-row shift-total"><span>Current Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
+                        <div class="result-row highlight"><span>HOURLY DIFFERENCE</span><span id="resDifference">0</span></div>
+                    </div>
+                </div>
+
+                <div class="section-frame" style="height: 250px; padding: 10px;">
+                    <canvas id="hourlyChart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="bottom-controls">
+            <div class="section-frame">
+                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Internet Radio</div>
+                <div class="radio-container">
+                    <select id="stationSelector" onchange="onStationChange()"><option value="">Loading...</option></select>
+                    <button id="radioBtn" style="background-color: #b4befe; color: #11111b;" onclick="toggleRadio()">Play</button>
+                </div>
+            </div>
+            <div class="section-frame">
+                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant</div>
+                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading...</option></select>
+            </div>
+        </div>
+
+        <div class="log-container">
+            <div class="log-title">Activity Log</div>
+            <ul id="logList" class="log-list"><li style="color: #6c7086; font-style: italic;">Awaiting session start...</li></ul>
+        </div>
+    </div>
+</div>
+
+<audio id="radioAudio" preload="none"></audio>
+
+<script>
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL
+    const SERVER_URL = "https://my-factory-server.onrender.com";
+
+    let activeJobId = null;
+    let jobsDatabase = {};
+
+    let stationId = "1";
+    let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
+    let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
+
+    const TIME_30_MIN = 30 * 60, TIME_1_HOUR = 60 * 60;
+    let timer1Remaining = TIME_30_MIN, timer2Remaining = TIME_1_HOUR;
+    let timer1EndTime, timer2EndTime, isRunning = false, isAlarmActive = false;
+    let countdownInterval, alarmInterval, alarmMessage = "", wasRadioPlayingBeforeAlarm = false;
+
+    let hasEnglishVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
+    let chartInstance = null, hourlyLabels = [], hourlyData = [], hourCounter = 0, savedLogsArray = [];
+
+    const display1 = document.getElementById('display1'), display2 = document.getElementById('display2');
+    const startPauseBtn = document.getElementById('startPauseBtn'), dismissBtn = document.getElementById('dismissBtn');
+    const radioAudio = document.getElementById('radioAudio'), radioBtn = document.getElementById('radioBtn');
+    const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
+    const logList = document.getElementById('logList');
+
+    function refreshSavedJobsUI() {
+        const listDiv = document.getElementById('savedJobsList');
+        let stored = localStorage.getItem('dashboard_production_jobs_db');
+        jobsDatabase = stored ? JSON.parse(stored) : {};
+
+        let keys = Object.keys(jobsDatabase);
+        if (keys.length === 0) {
+            listDiv.innerHTML = `<div style="color: #6c7086; font-style: italic; text-align: center; padding: 10px;">No saved jobs found. Create one below.</div>`;
+            return;
+        }
+
+        listDiv.innerHTML = "";
+        keys.forEach(id => {
+            let job = jobsDatabase[id];
+            let row = document.createElement('div');
+            row.className = 'job-item-row';
+            row.innerHTML = `
+                <div class="job-info-text" onclick="loadSelectedJob('${id}')">
+                    💼 [Station ${job.stationId || '?'}] Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
+                </div>
+                <button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>
+            `;
+            listDiv.appendChild(row);
+        });
+    }
+
+    function createNewJobConfiguration() {
+        let id = 'job_' + Date.now();
+        let now = new Date();
+        let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
+
+        let stId = document.getElementById('setupStationId').value;
+        let bSz = Math.max(0, parseInt(document.getElementById('setupBatchSize').value) || 30000);
+        let pBx = Math.max(1, parseInt(document.getElementById('setupProdPerBox').value) || 6);
+        let bLy = Math.max(1, parseInt(document.getElementById('setupBoxesPerLayer').value) || 72);
+        let lPl = Math.max(1, parseInt(document.getElementById('setupLayersPerPallet').value) || 12);
+        let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
+
+        let customStr = document.getElementById('setupCustomPallets').value;
+        let customArr = [];
+        if (customStr.trim() !== "") {
+            customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+        }
+
+        let initialBoxes = sPr > 0 ? Math.floor(sPr / pBx) : 0;
+        let initialLoose = sPr > 0 ? sPr % pBx : 0;
+
+        jobsDatabase[id] = {
+            id: id, createdTime: timestamp, stationId: stId,
+            batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
+            customPallets: customArr,
+            previousTotalProducts: sPr, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
+            currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
+            initialJobBoxesLock: initialBoxes,
+            timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, 
+            hourCounter: 0, hourlyLabels: [], hourlyData: [], 
+            logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on Station ${stId}.`, type: `check` }]
+        };
+
+        saveDatabaseToStorage();
+        loadSelectedJob(id);
+    }
+
+    function loadSelectedJob(id) {
+        activeJobId = id;
+        let job = jobsDatabase[id];
+
+        stationId = job.stationId || "1";
+        document.getElementById('activeStationDisplay').textContent = "Station " + stationId;
+
+        batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer;
+        layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts;
+        previousTotalProducts = job.previousTotalProducts; lastCalculatedBoxes = job.lastCalculatedBoxes;
+        lastCalculatedLoose = job.lastCalculatedLoose; initialJobBoxesLock = job.initialJobBoxesLock || 0;
+        hourCounter = job.hourCounter; hourlyLabels = [...job.hourlyLabels];
+        hourlyData = [...job.hourlyData]; savedLogsArray = [...job.logs];
+
+        productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
+        
+        let customArr = job.customPallets || [];
+        let sumCustom = customArr.reduce((a, b) => a + b, 0);
+        let standardPcs = Math.max(0, batchSize - sumCustom);
+        
+        let sequence = [];
+        while (standardPcs > 0) {
+            if (standardPcs >= productsPerPallet) {
+                sequence.push(productsPerPallet);
+                standardPcs -= productsPerPallet;
+            } else {
+                sequence.push(standardPcs);
+                standardPcs = 0;
+            }
+        }
+        job.palletSequence = sequence.concat(customArr);
+        
+        let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
+        let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
+
+        document.getElementById('specBatchSize').textContent = batchSize.toLocaleString();
+        document.getElementById('specProdPerBox').textContent = prodPerBox;
+        document.getElementById('specBoxesPerLayer').textContent = boxesPerLayer;
+        document.getElementById('specLayersPerPallet').textContent = layersPerPallet;
+        document.getElementById('specUnitsPerPallet').textContent = productsPerPallet.toLocaleString();
+        document.getElementById('specStartingProd').textContent = startingProducts.toLocaleString();
+
+        document.getElementById('currentBoxes').value = job.currentBoxesVal;
+        document.getElementById('currentLoose').value = job.currentLooseVal;
+
+        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets Total`;
+        document.getElementById('resPrevTotal').textContent = previousTotalProducts;
+        
+        let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
+        document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
+        document.getElementById('resShiftTotal').textContent = initialCalculatedTotal - startingProducts;
+        document.getElementById('resDifference').textContent = "0";
+
+        document.getElementById('setupScreen').style.display = 'none';
+        document.getElementById('mainDashboard').style.display = 'block';
+
+        buildPalletVisuals();
+        initChart();
+        updatePalletFills(initialCalculatedTotal);
+        
+        logList.innerHTML = "";
+        savedLogsArray.forEach(logItem => {
+            let li = document.createElement('li');
+            if (typeof logItem === 'string') {
+                li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`;
+            } else {
+                li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`;
+            }
+            logList.insertBefore(li, logList.firstChild);
+        });
+
+        timer1Remaining = job.timer1State !== undefined ? job.timer1State : TIME_30_MIN;
+        timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
+        isRunning = false;
+        
+        updateDisplays(); 
+        startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+    }
+
+    function saveActiveJobState() {
+        if (!activeJobId || !jobsDatabase[activeJobId]) return;
+
+        let curB = document.getElementById('currentBoxes').value;
+        let curL = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+
+        jobsDatabase[activeJobId].previousTotalProducts = previousTotalProducts;
+        jobsDatabase[activeJobId].lastCalculatedBoxes = lastCalculatedBoxes;
+        jobsDatabase[activeJobId].lastCalculatedLoose = lastCalculatedLoose;
+        jobsDatabase[activeJobId].currentBoxesVal = curB;
+        jobsDatabase[activeJobId].currentLooseVal = curL;
+        jobsDatabase[activeJobId].hourCounter = hourCounter;
+        jobsDatabase[activeJobId].hourlyLabels = [...hourlyLabels];
+        jobsDatabase[activeJobId].hourlyData = [...hourlyData];
+        jobsDatabase[activeJobId].logs = [...savedLogsArray];
+
+        let t1 = timer1Remaining, t2 = timer2Remaining;
+        if (isRunning) {
+            let now = Date.now();
+            t1 = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
+            t2 = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
+        }
+        jobsDatabase[activeJobId].timer1State = t1;
+        jobsDatabase[activeJobId].timer2State = t2;
+
+        saveDatabaseToStorage();
+    }
+
+    function saveDatabaseToStorage() { localStorage.setItem('dashboard_production_jobs_db', JSON.stringify(jobsDatabase)); }
+
+    function deleteJobFromDatabase(id, event) {
+        event.stopPropagation();
+        if (confirm("Are you sure you want to delete this job permanently?")) {
+            delete jobsDatabase[id]; saveDatabaseToStorage(); refreshSavedJobsUI();
+        }
+    }
+
+    function exitToJobList() {
+        if (isRunning) toggleTimers();
+        if (isAlarmActive) {
+            isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel();
+            dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
+        }
+        saveActiveJobState(); activeJobId = null;
+        if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+        document.getElementById('mainDashboard').style.display = 'none';
+        document.getElementById('setupScreen').style.display = 'flex';
+        refreshSavedJobsUI();
+    }
+
+    function buildPalletVisuals() {
         const grid = document.getElementById('palletGrid');
         
         grid.style.display = 'flex';
@@ -45,7 +503,6 @@ function buildPalletVisuals() {
         let completedPallets = 0;
         let activePalletSize = productsPerPallet; 
         
-        // Υπολογισμός σε ποια παλέτα βρισκόμαστε (για custom & normal παλέτες)
         for (let i = 0; i < seq.length; i++) {
             if (tempTotal >= seq[i]) {
                 completedPallets++;
@@ -66,23 +523,19 @@ function buildPalletVisuals() {
             let activePalletRemainingFraction = (activePalletSize - tempTotal) / activePalletSize;
             inactivePallets = remainingWholePallets + activePalletRemainingFraction;
             
-            // Το ποσοστό για το Animation
             pct = Math.floor((tempTotal / activePalletSize) * 100);
         }
 
-        // Ενημέρωση Αριθμού Ολοκληρωμένων
         valCompleted.textContent = completedPallets;
         
         if (currentTotal >= batchSize) {
             let extra = currentTotal - batchSize;
             
-            // Γεμίζει η μεσαία παλέτα στο 100%
             activeIcon.className = "pallet-icon full";
             activeIcon.style.setProperty('--fill-level', '100%');
             pctText.textContent = "100%";
             pctText.style.color = "#a6e3a1";
 
-            // Το δεξί κουτί ανάβει DONE
             boxRemaining.style.borderColor = "#a6e3a1";
             valRemaining.style.color = "#a6e3a1";
             if (extra > 0) {
@@ -93,16 +546,240 @@ function buildPalletVisuals() {
                 valRemaining.textContent = "DONE";
             }
         } else {
-            // Η μεσαία παλέτα γεμίζει ανάλογα με το ποσοστό της
             activeIcon.className = "pallet-icon";
             activeIcon.style.setProperty('--fill-level', `${pct}%`);
             pctText.textContent = `${pct}%`;
             pctText.style.color = "#fab387";
 
-            // Το δεξί κουτί δείχνει τα δεκαδικά (π.χ. 3.58)
             boxRemaining.style.borderColor = "#45475a";
             valRemaining.style.color = "#a6adc8";
             valRemaining.style.fontSize = "2.2rem";
             valRemaining.textContent = Number(inactivePallets.toFixed(2));
         }
     }
+
+    function initChart() {
+        const ctx = document.getElementById('hourlyChart').getContext('2d');
+        if(chartInstance) chartInstance.destroy();
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: hourlyLabels, datasets: [{ label: 'Hourly Units', data: hourlyData, backgroundColor: '#fab387', borderColor: '#fab387', borderWidth: 1 }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: '#313244' }, ticks: { color: '#cdd6f4' } }, x: { grid: { display: false }, ticks: { color: '#cdd6f4' } } }, plugins: { legend: { display: false } } }
+        });
+    }
+
+    function checkBoxesChange() {
+        let currentBoxesInput = document.getElementById('currentBoxes').value;
+        if (currentBoxesInput === "") return;
+        let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
+        if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) {
+            document.getElementById('currentLoose').value = "0";
+        }
+    }
+
+    function calculateProduction() {
+        let currentBoxesInput = document.getElementById('currentBoxes').value;
+        if (currentBoxesInput === "") return;
+        
+        let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
+        let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+
+        if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
+
+        let newTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
+        let difference = newTotalProducts - previousTotalProducts;
+        let totalShiftProducts = newTotalProducts - startingProducts;
+        let totalShiftBoxes = currentBoxes - initialJobBoxesLock;
+
+        document.getElementById('resPrevTotal').textContent = previousTotalProducts;
+        document.getElementById('resNewTotal').textContent = newTotalProducts;
+        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+        document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
+
+        updatePalletFills(newTotalProducts);
+
+        hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
+
+        let diffStr = difference >= 0 ? "+" + difference : difference;
+        addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${newTotalProducts} | Diff: ${diffStr} | Shift Total: ${totalShiftProducts} (${totalShiftBoxes} Boxes)`, 'calc');
+
+        lastCalculatedBoxes = currentBoxes; lastCalculatedLoose = looseProducts; previousTotalProducts = newTotalProducts;
+
+        saveActiveJobState(); 
+
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    station_id: stationId,
+                    shift_boxes: totalShiftBoxes,
+                    shift_total: totalShiftProducts
+                })
+            }).then(res => console.log("Server Sync Success!")).catch(err => console.error("Server Sync Error:", err));
+        }
+    }
+
+    async function loadRadioStations() {
+        const stationSelector = document.getElementById('stationSelector');
+        stationSelector.innerHTML = "<option value=''>Loading UK stations...</option>";
+
+        try {
+            const response = await fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true');
+            const stations = await response.json();
+
+            stationSelector.innerHTML = "<option value=''>-- Select UK Station --</option>";
+            
+            stations.forEach(station => {
+                if (station.url_resolved && station.name.trim() !== "") {
+                    let opt = document.createElement('option');
+                    opt.value = station.url_resolved;
+                    opt.textContent = station.name.trim();
+                    stationSelector.appendChild(opt);
+                }
+            });
+        } catch (error) {
+            console.error("Radio fetch error:", error);
+            stationSelector.innerHTML = "<option value=''>Failed to load radio stations</option>";
+        }
+    }
+
+    function addLogEntry(text, typeClass) {
+        if (logList.children.length === 1 && logList.children[0].style.fontStyle === 'italic') logList.innerHTML = "";
+        let stamp = getTimestamp();
+        savedLogsArray.push({ stamp: stamp, text: text, type: typeClass });
+        let li = document.createElement('li'); li.className = `log-item ${typeClass}`;
+        li.innerHTML = `<span style="color:#6c7086">${stamp}</span> <span>${text}</span>`;
+        logList.insertBefore(li, logList.firstChild);
+    }
+
+    function getTimestamp() {
+        let now = new Date();
+        return `[${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}]`;
+    }
+
+    function loadAvailableVoices() {
+        if (!('speechSynthesis' in window)) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
+        let voices = window.speechSynthesis.getVoices(); voiceSelector.innerHTML = "";
+        let englishVoices = voices.filter(v => v.lang.includes('en'));
+        if (englishVoices.length === 0) {
+            hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
+            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)"; voiceSelector.appendChild(opt); return;
+        }
+        hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
+        englishVoices.forEach(v => {
+            let opt = document.createElement('option'); opt.value = v.name; opt.textContent = v.name; voiceSelector.appendChild(opt);
+        });
+        let savedVoice = localStorage.getItem('selected_work_voice');
+        if (savedVoice && englishVoices.some(v => v.name === savedVoice)) { voiceSelector.value = savedVoice; }
+        else { let susan = englishVoices.find(v => v.name.includes('Susan')); if (susan) voiceSelector.value = susan.name; }
+    }
+
+    function onVoiceChange() {
+        localStorage.setItem('selected_work_voice', voiceSelector.value);
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel(); let ut = new SpeechSynthesisUtterance("Voice confirmed");
+            let selected = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
+            if (selected) ut.voice = selected; window.speechSynthesis.speak(ut);
+        }
+    }
+
+    function toggleRadio() { if (!radioAudio.paused) { stopRadio(); } else { startRadio(); } }
+    function startRadio() {
+        let url = stationSelector.value;
+        if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; }
+    }
+    function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
+    function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
+
+    function formatTime(seconds, showHours = false) {
+        if (isNaN(seconds) || seconds < 0) { seconds = 0; }
+        let hrs = Math.floor(seconds / 3600), mins = Math.floor((seconds % 3600) / 60), secs = seconds % 60;
+        let res = ""; if (showHours) res += (hrs < 10 ? "0" + hrs : hrs) + ":";
+        res += (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs); return res;
+    }
+
+    function updateDisplays() { 
+        if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
+        if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
+        display1.textContent = formatTime(timer1Remaining, false); display2.textContent = formatTime(timer2Remaining, true); 
+    }
+
+    function toggleTimers() {
+        if (isRunning) {
+            isRunning = false; clearInterval(countdownInterval); let now = Date.now();
+            if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
+            if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
+            startPauseBtn.textContent = "Resume Timers"; startPauseBtn.classList.add('paused'); saveActiveJobState();
+        } else {
+            isRunning = true; let now = Date.now();
+            if (isNaN(timer1Remaining) || timer1Remaining <= 0) timer1Remaining = TIME_30_MIN;
+            if (isNaN(timer2Remaining) || timer2Remaining <= 0) timer2Remaining = TIME_1_HOUR;
+            timer1EndTime = now + (timer1Remaining * 1000); timer2EndTime = now + (timer2Remaining * 1000);
+            startPauseBtn.textContent = "Pause (Break)"; startPauseBtn.classList.remove('paused');
+            countdownInterval = setInterval(() => {
+                let currentTime = Date.now(); let t1_ended = false, t2_ended = false;
+                if (timer1Remaining > 0) { timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - currentTime) / 1000)); if (timer1Remaining === 0) t1_ended = true; }
+                if (timer2Remaining > 0) { timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - currentTime) / 1000)); if (timer2Remaining === 0) t2_ended = true; }
+                if (t1_ended || t2_ended) { if (isAlarmActive) { buildAlarmMessage(timer1Remaining === 0, timer2Remaining === 0); } else { triggerAlarm(t1_ended, t2_ended); } }
+                updateDisplays();
+            }, 200);
+        }
+    }
+
+    function playDigitalBeep() {
+        try {
+            let audioCtx = new (window.AudioContext || window.webkitAudioContext)(); let oscillator = audioCtx.createOscillator(); let gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            oscillator.start(); gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3); oscillator.stop(audioCtx.currentTime + 0.3);
+        } catch (e) { console.log(e); }
+    }
+
+    function triggerAlertSound() {
+        if (!isAlarmActive) return;
+        if (hasEnglishVoice && voiceSelector.value) {
+            window.speechSynthesis.cancel(); let ut = new SpeechSynthesisUtterance(alarmMessage); ut.rate = 0.9;
+            let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value); if (v) ut.voice = v; window.speechSynthesis.speak(ut);
+        } else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); }
+    }
+
+    function buildAlarmMessage(t1, t2) {
+        if (t1 && t2) alarmMessage = "Please check product and log hourly production";
+        else if (t1) alarmMessage = "Please check product"; else if (t2) alarmMessage = "Please log hourly production";
+    }
+
+    function triggerAlarm(t1, t2) {
+        isAlarmActive = true; dismissBtn.style.display = 'block'; wasRadioPlayingBeforeAlarm = !radioAudio.paused; stopRadio();
+        buildAlarmMessage(t1, t2); triggerAlertSound(); alarmInterval = setInterval(triggerAlertSound, 4000);
+    }
+
+    document.addEventListener("visibilitychange", () => { if (!document.hidden && isAlarmActive) { triggerAlertSound(); } });
+
+    function dismissAlarm() {
+        let now = Date.now();
+        let t1Triggered = (timer1Remaining === 0);
+        let t2Triggered = (timer2Remaining === 0);
+
+        if (t1Triggered && t2Triggered) { addLogEntry("✓ Product Check & Hourly Production Completed", "check"); } 
+        else if (t1Triggered) { addLogEntry("✓ Product Check Completed", "check"); } 
+        else if (t2Triggered) { addLogEntry("✓ Hourly Production Log Completed", "check"); }
+
+        if (t1Triggered) { timer1Remaining = TIME_30_MIN; timer1EndTime = now + (TIME_30_MIN * 1000); }
+        if (t2Triggered) { timer2Remaining = TIME_1_HOUR; timer2EndTime = now + (TIME_1_HOUR * 1000); }
+
+        updateDisplays(); saveActiveJobState();
+
+        isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none';
+        if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
+    }
+
+    refreshSavedJobsUI();
+    loadRadioStations(); 
+    updateDisplays();
+    
+    if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } 
+    else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
+</script>
+</body>
+</html>
