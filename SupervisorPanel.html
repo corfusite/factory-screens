@@ -30,6 +30,8 @@
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL (π.χ. "https://my-factory-server.onrender.com")
     const SERVER_URL = "https://my-factory-server.onrender.com/";
 
+    const STATION_NAMES = ["", "Line 1", "Line 2", "Line 3", "Line 4", "Pouch", "Powder Room"];
+
     function createEmptyCards() {
         const grid = document.getElementById('supervisorGrid');
         grid.innerHTML = '';
@@ -37,7 +39,7 @@
             grid.innerHTML += `
                 <div class="station-card" id="card-${i}">
                     <div class="station-header">
-                        <div class="station-name">Station ${i}</div>
+                        <div class="station-name">${STATION_NAMES[i]}</div>
                         <div class="status-badge status-offline" id="status-${i}">Offline</div>
                     </div>
                     <div class="data-row"><span>Shift Boxes:</span> <span class="data-value" id="boxes-${i}">0</span></div>
