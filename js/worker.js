@@ -107,7 +107,7 @@ function refreshSavedJobsUI() {
     });
 }
 
-function createNewJobConfiguration() {
+async function createNewJobConfiguration() {
     // 1. READ INPUTS
     let bNumInput = document.getElementById('setupBatchNumber').value.trim();
     let bSzInput = document.getElementById('setupBatchSize').value;
@@ -142,14 +142,31 @@ function createNewJobConfiguration() {
         return;
     }
 
-    // 3. IF ALL VALID, PROCEED TO CREATE JOB
+    let stId = document.getElementById('setupStationId').value;
+    let sName = STATION_NAMES[stId] || "Unknown";
+
+    // 🔥 3. ΑΥΣΤΗΡΟΣ ΕΛΕΓΧΟΣ: ΜΠΛΟΚΑΡΕΙ ΤΗ ΣΥΝΔΕΣΗ ΑΝ Η ΓΡΑΜΜΗ ΕΙΝΑΙ ΠΙΑΣΜΕΝΗ 🔥
+    if (SERVER_URL && SERVER_URL.includes("http")) {
+        try {
+            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
+            const serverData = await res.json();
+            
+            // Αν η γραμμή φαίνεται "Online" στον Επόπτη, ΑΠΑΓΟΡΕΥΕΙ τη δημιουργία
+            if (serverData[stId] && serverData[stId].status === "Online") {
+                alert(`⛔ ACCESS DENIED: ${sName} is already ONLINE and running a job (Batch: ${serverData[stId].batch_number})!\n\nYou cannot start a new job on a station that is currently in use. Please select a different station.`);
+                return; // Σταματάει ΑΜΕΣΩΣ τον κώδικα, δεν τον αφήνει να προχωρήσει
+            }
+        } catch(e) {
+            // Αν δεν έχει ίντερνετ εκείνη τη στιγμή, προχωράμε αναγκαστικά
+        }
+    }
+
+    // 4. IF ALL VALID AND STATION IS FREE, PROCEED TO CREATE JOB
     let id = 'job_' + Date.now();
     let now = new Date();
     let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
 
-    let stId = document.getElementById('setupStationId').value;
     stationId = stId; 
-    let sName = STATION_NAMES[stId] || "Unknown";
     let bNum = bNumInput; 
 
     let bSz = parseInt(bSzInput);
