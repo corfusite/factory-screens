@@ -322,19 +322,15 @@
     let activeJobId = null;
     let jobsDatabase = {};
 
-    let globalData = JSON.parse(localStorage.getItem('station_global_db')) || {
-        shiftTotal: 0,
-        chartLabels: [],
-        chartData: [],
-        hourCounter: 0
-    };
+    // 🔥 Η ΜΝΗΜΗ ΤΗΣ ΒΑΡΔΙΑΣ ΕΙΝΑΙ ΠΛΕΟΝ ΞΕΧΩΡΙΣΤΗ ΓΙΑ ΚΑΘΕ ΣΤΑΘΜΟ 🔥
+    let allStationsGlobalData = JSON.parse(localStorage.getItem('all_stations_global_db')) || {};
+    let globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
 
     let stationId = "1";
     let globalShiftTarget = 0; 
     let localMessageRead = true; 
     let activeMessageInterval = null;
     let radioWasPlayingBeforeMsg = false;
-
     let alertStateMachine = 0; 
 
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
@@ -469,8 +465,10 @@
         let job = jobsDatabase[id];
 
         stationId = job.stationId || "1";
-        document.getElementById('setupStationId').value = stationId; 
+        // Φορτώνει τη σωστή μνήμη για τον συγκεκριμένο σταθμό (ή φτιάχνει νέα αν δεν υπάρχει)
+        globalData = allStationsGlobalData[stationId] || { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
 
+        document.getElementById('setupStationId').value = stationId; 
         document.getElementById('activeStationDisplay').textContent = `${STATION_NAMES[stationId]} | ${getCurrentShift()}`;
         document.getElementById('specBatchNumber').textContent = job.batchNumber || "-";
 
@@ -511,7 +509,6 @@
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
         document.getElementById('resTargetPallets').textContent = `${exactPallets} Plts | ${exactBoxes} Bxs | ${batchSize.toLocaleString()} Pcs`;
-        
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
         let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
@@ -563,7 +560,9 @@
         }
         jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2;
         saveDatabaseToStorage();
-        localStorage.setItem('station_global_db', JSON.stringify(globalData));
+        
+        allStationsGlobalData[stationId] = globalData;
+        localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
     }
 
     function saveDatabaseToStorage() { localStorage.setItem('dashboard_production_jobs_db', JSON.stringify(jobsDatabase)); }
@@ -711,7 +710,9 @@
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
         saveDatabaseToStorage();
-        localStorage.setItem('station_global_db', JSON.stringify(globalData));
+        
+        allStationsGlobalData[stationId] = globalData;
+        localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
 
         sendSyncToServer(false);
         addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
@@ -757,7 +758,9 @@
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
         saveActiveJobState(); 
-        localStorage.setItem('station_global_db', JSON.stringify(globalData));
+        
+        allStationsGlobalData[stationId] = globalData;
+        localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
 
         sendSyncToServer(false);
     }
@@ -771,10 +774,11 @@
             
             if(data[stationId]) {
                 
-                // 1. ΕΛΕΓΧΟΣ ΓΙΑ KILL SWITCH (ΜΗΔΕΝΙΣΜΟΣ ΒΑΡΔΙΑΣ ΑΠΟ ΕΠΟΠΤΗ)
-                if (data[stationId].reset_flag === True || data[stationId].reset_flag === true) {
+                // 1. ΕΛΕΓΧΟΣ ΓΙΑ KILL SWITCH (ΜΗΔΕΝΙΣΜΟΣ ΒΑΡΔΙΑΣ ΑΠΟ ΕΠΟΠΤΗ) - Διορθώθηκε το συντακτικό
+                if (data[stationId].reset_flag === true) {
                     globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
-                    localStorage.setItem('station_global_db', JSON.stringify(globalData));
+                    allStationsGlobalData[stationId] = globalData;
+                    localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
                     
                     if(activeJobId) {
                         document.getElementById('resShiftTotal').textContent = "0";
@@ -785,6 +789,14 @@
                             chartInstance.update();
                         }
                         addLogEntry("⚠️ Shift Data Reset remotely by Supervisor!", "check");
+                        
+                        // Κλειδώνει τα τρέχοντα τεμάχια ως νέο "μηδέν" για την επόμενη ώρα της νέας βάρδιας
+                        let currentTotalNow = (Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0) * prodPerBox) + Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+                        jobsDatabase[activeJobId].lastSyncedTotal = currentTotalNow;
+                        jobsDatabase[activeJobId].previousTotalProducts = currentTotalNow;
+                        saveDatabaseToStorage();
+                        
+                        sendSyncToServer(false);
                     }
                     
                     fetch(`${SERVER_URL}/api/ack_reset`, {
@@ -793,7 +805,7 @@
                     }).catch(e => {});
                 }
 
-                if (!activeJobId) return; // Τα υπόλοιπα τρέχουν μόνο αν είμαστε μέσα σε δουλειά
+                if (!activeJobId) return; 
                 
                 globalShiftTarget = data[stationId].shift_target || 0;
                 updateShiftGoalUI(globalData.shiftTotal);
@@ -819,7 +831,6 @@
         } catch(e) {}
     }
     
-    // Ξεκινάει το polling αμέσως, ακόμα κι αν είμαστε στο αρχικό μενού
     setInterval(pollSupervisorTarget, 4000);
     pollSupervisorTarget();
 
