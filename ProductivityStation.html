@@ -106,6 +106,7 @@
 </head>
 <body>
 
+<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -256,7 +257,9 @@
                     </div>
 
                     <div class="results-box">
-                        <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
+                        <!-- 🔥 ΕΔΩ ΕΓΙΝΕ Η ΔΙΟΡΘΩΣΗ ΓΙΑ ΤΑ BOXES 🔥 -->
+                        <div class="result-row"><span>Target (Pallets / Boxes):</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
+                        
                         <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row shift-total"><span id="shiftLabelText">Accumulated Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
@@ -436,6 +439,9 @@
         
         let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
         let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
+        
+        // 🔥 Υπολογισμός συνολικών κουτιών 🔥
+        let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
 
         document.getElementById('specBatchSize').textContent = batchSize.toLocaleString();
         document.getElementById('specProdPerBox').textContent = prodPerBox;
@@ -451,7 +457,8 @@
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
-        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets Total`;
+        // 🔥 Ενημέρωση του στοιχείου για να δείχνει και τα Boxes 🔥
+        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets | ${exactBoxes} Boxes`;
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
         let initialCalculatedTotal = (displayBoxes * prodPerBox) + displayLoose;
@@ -459,7 +466,6 @@
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
         document.getElementById('resDifference').textContent = "0";
 
-        // Η συνολική βάρδια θα παρθεί απευθείας από τον Server (Deltas)
         document.getElementById('resShiftTotal').textContent = "Loading...";
 
         document.getElementById('setupScreen').style.display = 'none';
@@ -479,6 +485,20 @@
         timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
         isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+        
+        setTimeout(() => {
+            let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+            let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+            let currentShiftBoxes = (displayBoxes || 0) - initialJobBoxesLock;
+            
+            if (SERVER_URL && SERVER_URL.includes("http")) {
+                fetch(`${SERVER_URL}/api/update_station`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ station_id: stationId, shift_boxes: currentShiftBoxes, shift_total: currentLocalTotal, completed_pallets: readyPallets })
+                }).catch(err => console.log("Silent sync delay"));
+            }
+        }, 500);
+
         pollSupervisorTarget();
     }
 
@@ -636,7 +656,6 @@
 
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
 
-        // Οπτική ενημέρωση της βάρδιας αμέσως (θα κλειδώσει με το επόμενο poll)
         let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
         document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
         updateShiftGoalUI(currentDisplayedShift + deltaTotal);
