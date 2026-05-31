@@ -70,7 +70,7 @@
 
     <div class="controls-container">
         <a href="reports.html" class="btn-reports" target="_blank">📋 Open Reports & History Hub</a>
-        <button class="btn-reset-targets" onclick="resetTargets()">Reset All Targets (New Shift)</button>
+        <button class="btn-reset-targets" onclick="resetEntireShift()">Reset All Shift Data & Targets</button>
     </div>
 
 <script>
@@ -168,13 +168,13 @@
         } catch (error) {}
     }
 
-    function resetTargets() {
-        if(!confirm("Are you sure you want to start a new shift?\n\nThis will ONLY reset the Targets to zero. (Production numbers are controlled by the workers).")) return;
+    function resetEntireShift() {
+        if(!confirm("Are you sure you want to start a NEW SHIFT?\n\nThis will permanently WIPE all Targets AND remote Workers' shift production data & charts!")) return;
         
         localTargetsDB = {};
         localStorage.removeItem('supervisor_targets_db');
         
-        fetch(`${SERVER_URL}/api/reset_targets`, { method: 'POST' }).then(() => {
+        fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' }).then(() => {
             fetchServerData();
         }).catch(err => alert("Error communicating with server."));
     }
