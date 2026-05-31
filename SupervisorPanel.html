@@ -32,7 +32,6 @@
         .custom-btn { background-color: #89b4fa; color: #11111b; border: none; padding: 8px 12px; border-radius: 5px; font-weight: bold; cursor: pointer; }
         .custom-btn:hover { background-color: #b4befe; }
 
-        /* Alerts & Messages */
         .msg-status { font-size: 0.8rem; margin-top: 5px; text-align: right; font-style: italic; }
         .msg-status.unread { color: #fab387; }
         .msg-status.read { color: #a6e3a1; }
@@ -43,6 +42,16 @@
         .mini-progress-track { background-color: #313244; height: 12px; border-radius: 5px; width: 100%; margin-top: 10px; overflow: hidden; position: relative;}
         .mini-progress-fill { background-color: #89b4fa; height: 100%; width: 0%; transition: width 0.3s; }
         .mini-pct { position: absolute; right: 5px; top: -2px; font-size: 0.7rem; color: #fff; font-weight: bold; }
+
+        /* SHIFT HISTORY SECTION */
+        .history-container { background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; padding: 20px; width: 100%; max-width: 1200px; margin-top: 30px; box-sizing: border-box; }
+        .btn-end-shift { background-color: #f38ba8; color: #11111b; font-weight: bold; border: none; padding: 10px 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: background 0.3s; }
+        .btn-end-shift:hover { background-color: #eba0ac; }
+        .shift-record { display: flex; justify-content: space-between; align-items: center; background-color: #11111b; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-left: 5px solid #a6e3a1; }
+        .shift-info { display: flex; flex-direction: column; gap: 5px; }
+        .shift-title { font-size: 1.2rem; color: #89b4fa; font-weight: bold; }
+        .shift-details { color: #cdd6f4; font-family: monospace; font-size: 1.1rem; }
+        .btn-delete-shift { background-color: #585b70; color: #fff; padding: 8px 15px; border-radius: 6px; border: none; cursor: pointer; }
         
         @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
     </style>
@@ -61,12 +70,21 @@
 
     <div class="grid-container" id="supervisorGrid"></div>
 
+    <div class="history-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
+            <h2 style="color: #f9e2af; margin:0;">Shift History & Management</h2>
+            <button class="btn-end-shift" onclick="endCurrentShift()">End & Save Current Shift</button>
+        </div>
+        <div id="shiftHistoryList"></div>
+    </div>
+
 <script>
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
     
     const STATION_NAMES = ["", "Line 1", "Line 2", "Line 3", "Line 4", "Pouch", "Powder Room"];
     let localTargetsDB = JSON.parse(localStorage.getItem('supervisor_targets_db')) || {};
+    let shiftHistoryDB = JSON.parse(localStorage.getItem('supervisor_shifts_db')) || [];
 
     function createEmptyCards() {
         const grid = document.getElementById('supervisorGrid');
@@ -131,7 +149,6 @@
         try { await fetch(`${SERVER_URL}/api/set_target`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, target: targetNum }) }); } catch(e) {}
     }
 
-    // Αποστολή Μηνύματος
     async function sendMsg(stationId) {
         const msg = document.getElementById(`input-msg-${stationId}`).value;
         if(msg === "") return;
@@ -145,7 +162,6 @@
         } catch (error) {}
     }
 
-    // Απάντηση στην κλήση εργάτη
     async function ackAlert(stationId) {
         try {
             await fetch(`${SERVER_URL}/api/ack_alert`, {
@@ -154,6 +170,55 @@
             });
             fetchServerData();
         } catch (error) {}
+    }
+
+    function renderShiftHistory() {
+        let list = document.getElementById('shiftHistoryList');
+        list.innerHTML = "";
+        if(shiftHistoryDB.length === 0) {
+            list.innerHTML = "<div style='color:#6c7086; font-style:italic; text-align:center;'>No saved shifts yet.</div>";
+            return;
+        }
+        
+        shiftHistoryDB.forEach(shift => {
+            list.innerHTML += `
+                <div class="shift-record">
+                    <div class="shift-info">
+                        <div class="shift-title">Shift Ended: ${shift.date}</div>
+                        <div class="shift-details">Total Factory Production: <span style="color:#a6e3a1;">${shift.produced}</span> / <span style="color:#fab387;">${shift.target}</span></div>
+                    </div>
+                    <button class="btn-delete-shift" onclick="deleteShift(${shift.id})">Delete</button>
+                </div>
+            `;
+        });
+    }
+
+    function endCurrentShift() {
+        if(!confirm("Are you sure you want to end and save the current shift?\n\nThis will reset all station progress to 0, but the Targets will remain intact.")) return;
+        
+        let now = new Date();
+        let stamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
+        
+        let totalP = document.getElementById('global-current').textContent;
+        let totalT = document.getElementById('global-target').textContent;
+        
+        let shiftRecord = { id: Date.now(), date: stamp, produced: totalP, target: totalT };
+        
+        shiftHistoryDB.unshift(shiftRecord); // Add to top
+        localStorage.setItem('supervisor_shifts_db', JSON.stringify(shiftHistoryDB));
+        
+        // Reset the Server Shift Accumulators
+        fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' }).then(() => {
+            fetchServerData();
+            renderShiftHistory();
+        }).catch(err => alert("Error communicating with server."));
+    }
+
+    function deleteShift(id) {
+        if(!confirm("Delete this shift record?")) return;
+        shiftHistoryDB = shiftHistoryDB.filter(s => s.id !== id);
+        localStorage.setItem('supervisor_shifts_db', JSON.stringify(shiftHistoryDB));
+        renderShiftHistory();
     }
 
     async function fetchServerData() {
@@ -190,9 +255,11 @@
                     if (stationData.status === "Online") {
                         card.classList.add('online');
                         badge.className = 'status-badge status-online'; badge.textContent = 'Online';
+                    } else {
+                        card.classList.remove('online');
+                        badge.className = 'status-badge status-offline'; badge.textContent = 'Offline';
                     }
 
-                    // Εμφάνιση κατάστασης μηνύματος
                     const msgStatus = document.getElementById(`msg-status-${i}`);
                     if (stationData.supervisor_message !== "") {
                         if (!stationData.message_read) {
@@ -204,7 +271,6 @@
                         msgStatus.textContent = "";
                     }
 
-                    // Εμφάνιση Alert από τον εργάτη
                     const alertBox = document.getElementById(`worker-alert-${i}`);
                     if (stationData.worker_alert !== "" && !stationData.alert_acknowledged) {
                         alertBox.style.display = "block";
@@ -230,6 +296,7 @@
     }
 
     createEmptyCards();
+    renderShiftHistory();
     setInterval(fetchServerData, 3000); 
     fetchServerData();
 </script>
