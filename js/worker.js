@@ -108,41 +108,41 @@ function refreshSavedJobsUI() {
 }
 
 function createNewJobConfiguration() {
-    // 1. ΔΙΑΒΑΖΟΥΜΕ ΤΑ ΠΕΔΙΑ ΓΙΑ ΝΑ ΔΟΥΜΕ ΑΝ ΕΙΝΑΙ ΑΔΕΙΑ
+    // 1. READ INPUTS
     let bNumInput = document.getElementById('setupBatchNumber').value.trim();
     let bSzInput = document.getElementById('setupBatchSize').value;
     let pBxInput = document.getElementById('setupProdPerBox').value;
     let bLyInput = document.getElementById('setupBoxesPerLayer').value;
     let lPlInput = document.getElementById('setupLayersPerPallet').value;
 
-    // 2. ΕΛΕΓΧΟΙ (VALIDATION) - Αν κάτι λείπει, πετάει μήνυμα και σταματάει
+    // 2. VALIDATION - Stops execution if something is missing
     if (bNumInput === "") {
-        alert("⚠️ ΣΦΑΛΜΑ: Παρακαλώ συμπληρώστε το Batch Number / Order ID!");
+        alert("⚠️ ERROR: Please enter the Batch Number / Order ID!");
         document.getElementById('setupBatchNumber').focus();
-        return; // Σταματάει τη διαδικασία εδώ
+        return; 
     }
     if (!bSzInput || parseInt(bSzInput) <= 0) {
-        alert("⚠️ ΣΦΑΛΜΑ: Παρακαλώ βάλτε ένα έγκυρο Batch Size (μεγαλύτερο του μηδενός)!");
+        alert("⚠️ ERROR: Please enter a valid Batch Size (greater than zero)!");
         document.getElementById('setupBatchSize').focus();
         return;
     }
     if (!pBxInput || parseInt(pBxInput) <= 0) {
-        alert("⚠️ ΣΦΑΛΜΑ: Παρακαλώ συμπληρώστε τα Products per Box!");
+        alert("⚠️ ERROR: Please enter Products per Box!");
         document.getElementById('setupProdPerBox').focus();
         return;
     }
     if (!bLyInput || parseInt(bLyInput) <= 0) {
-        alert("⚠️ ΣΦΑΛΜΑ: Παρακαλώ συμπληρώστε τα Boxes per Layer!");
+        alert("⚠️ ERROR: Please enter Boxes per Layer!");
         document.getElementById('setupBoxesPerLayer').focus();
         return;
     }
     if (!lPlInput || parseInt(lPlInput) <= 0) {
-        alert("⚠️ ΣΦΑΛΜΑ: Παρακαλώ συμπληρώστε τα Layers per Pallet!");
+        alert("⚠️ ERROR: Please enter Layers per Pallet!");
         document.getElementById('setupLayersPerPallet').focus();
         return;
     }
 
-    // 3. ΑΝ ΟΛΑ ΕΙΝΑΙ ΣΩΣΤΑ, ΠΡΟΧΩΡΑΕΙ ΚΑΝΟΝΙΚΑ ΣΤΗ ΔΗΜΙΟΥΡΓΙΑ
+    // 3. IF ALL VALID, PROCEED TO CREATE JOB
     let id = 'job_' + Date.now();
     let now = new Date();
     let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
@@ -150,13 +150,13 @@ function createNewJobConfiguration() {
     let stId = document.getElementById('setupStationId').value;
     stationId = stId; 
     let sName = STATION_NAMES[stId] || "Unknown";
-    let bNum = bNumInput; // Παίρνει το ελεγμένο Batch Number
+    let bNum = bNumInput; 
 
     let bSz = parseInt(bSzInput);
     let pBx = parseInt(pBxInput);
     let bLy = parseInt(bLyInput);
     let lPl = parseInt(lPlInput);
-    let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0); // Το Starting Prod μπορεί να είναι 0, οπότε το αφήνουμε χαλαρό
+    let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
 
     let customStr = document.getElementById('setupCustomPallets').value;
     let customPos = document.getElementById('setupCustomPos').value; 
