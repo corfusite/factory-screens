@@ -106,6 +106,7 @@
 </head>
 <body>
 
+<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -479,6 +480,19 @@
         isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
         
+        setTimeout(() => {
+            let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+            let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+            let currentShiftBoxes = (displayBoxes || 0) - initialJobBoxesLock;
+            
+            if (SERVER_URL && SERVER_URL.includes("http")) {
+                fetch(`${SERVER_URL}/api/update_station`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ station_id: stationId, shift_boxes: currentShiftBoxes, shift_total: currentLocalTotal, completed_pallets: readyPallets })
+                }).catch(err => console.log("Silent sync delay"));
+            }
+        }, 500);
+
         pollSupervisorTarget();
     }
 
@@ -616,7 +630,7 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
-    // 🔥 LIVE UPDATE: Ίδιοι υπολογισμοί, χωρίς το Γράφημα 🔥
+    // 🔥 ΑΠΟΛΥΤΑ ΔΙΟΡΘΩΜΕΝΟ: Live Update (ΔΕΝ ΑΓΓΙΖΕΙ TO HOURLY DIFFERENCE ΟΥΤΕ ΤΟ PREV TOTAL) 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -626,12 +640,11 @@
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
 
-        // 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ
+        // 1. Ενημέρωση των Παλετών
         updatePalletFills(currentTotalProducts); 
-
-        // 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
+        // 2. Υπολογισμός Delta για τον Server
         let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
         let lastBoxes = jobsDatabase[activeJobId].lastSyncedBoxes || 0;
         let lastPallets = jobsDatabase[activeJobId].lastSyncedPallets || 0;
@@ -640,16 +653,15 @@
         let deltaBoxes = currentBoxes - lastBoxes;
         let deltaPallets = readyPallets - lastPallets;
 
-        let difference = currentTotalProducts - previousTotalProducts; // Δείχνει τη διαφορά μέχρι τώρα
-
+        // 3. Ενημέρωση UI - ΠΕΙΡΑΖΟΥΜΕ ΜΟΝΟ ΤΟ NEW TOTAL & TH ΒΑΡΔΙΑ!
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
-        document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
 
         let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
         if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
         document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
         updateShiftGoalUI(currentDisplayedShift + deltaTotal);
 
+        // 4. Σώσιμο Κατάστασης Sync
         jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
         jobsDatabase[activeJobId].lastSyncedBoxes = currentBoxes;
         jobsDatabase[activeJobId].lastSyncedPallets = readyPallets;
@@ -664,11 +676,11 @@
                     body: JSON.stringify({ station_id: stationId, delta_boxes: deltaBoxes, delta_total: deltaTotal, delta_pallets: deltaPallets })
                 }).catch(err => console.log("Sync delay"));
             }
-            addLogEntry(`> Live Sync: Display & Server updated (${deltaTotal >= 0 ? '+'+deltaTotal : deltaTotal} pcs)`, 'sync');
+            addLogEntry(`> Live Sync: Display & Server updated (+${deltaTotal} pcs)`, 'sync');
         }
     }
 
-    // 🔥 HOURLY BOOKING: Ίδιοι υπολογισμοί, ΠΡΟΣΘΕΤΕΙ στο Γράφημα 🔥
+    // 🔥 HOURLY BOOKING: ΕΝΗΜΕΡΩΝΕΙ ΓΡΑΦΗΜΑ & HOURLY DIFFERENCE & PREV TOTAL 🔥
     function calculateProduction() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -679,14 +691,13 @@
         if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
-        let difference = currentTotalProducts - previousTotalProducts;
+        let hourlyDifference = currentTotalProducts - previousTotalProducts; // Εδώ βγαίνει η διαφορά ώρας!
 
-        // 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ
+        // 1. Ενημέρωση Παλετών
         updatePalletFills(currentTotalProducts); 
-
-        // 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
+        // 2. Υπολογισμός Delta για τον Server
         let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
         let lastBoxes = jobsDatabase[activeJobId].lastSyncedBoxes || 0;
         let lastPallets = jobsDatabase[activeJobId].lastSyncedPallets || 0;
@@ -695,21 +706,23 @@
         let deltaBoxes = currentBoxes - lastBoxes;
         let deltaPallets = readyPallets - lastPallets;
 
+        // 3. ΕΝΗΜΕΡΩΣΗ UI ΜΕ ΤΗ ΔΙΑΦΟΡΑ ΤΗΣ ΩΡΑΣ
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
-        document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
+        document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
 
         let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
         if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
         document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
         updateShiftGoalUI(currentDisplayedShift + deltaTotal);
 
-        // 🔥 ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ ΚΑΙ ΚΛΕΙΔΩΜΑ ΩΡΑΣ 🔥
-        hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
+        // 4. ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ
+        hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(hourlyDifference); chartInstance.update();
 
-        let diffStr = difference >= 0 ? "+" + difference : difference; let shiftName = getCurrentShift();
+        let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; let shiftName = getCurrentShift();
         addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
 
+        // 5. ΚΛΕΙΔΩΜΑ ΜΕΤΑΒΛΗΤΩΝ ΩΡΑΣ
         lastCalculatedBoxes = currentBoxes; 
         lastCalculatedLoose = looseProducts; 
         previousTotalProducts = currentTotalProducts;
@@ -743,7 +756,6 @@
                 
                 let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
                 
-                // Διορθώνει τον Server αν έπεσε (Self-Healing)
                 if (!isNaN(currentDisplayedShift) && currentDisplayedShift > 0 && serverTotal === 0) {
                     let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
                     fetch(`${SERVER_URL}/api/update_station`, {
@@ -764,23 +776,29 @@
                 }
 
                 let serverAcked = data[stationId].alert_acknowledged;
-                if (pendingAlertAck && serverAcked) {
+                let serverAlertActive = data[stationId].worker_alert; // Βεβαιωνόμαστε ότι όντως υπήρχε κλήση!
+
+                // ΔΙΟΡΘΩΣΗ BUG ΚΛΗΣΗΣ: Χτυπάει μόνο αν η κλήση είχε πάει, και τώρα απαντήθηκε.
+                if (pendingAlertAck && serverAcked && serverAlertActive !== "") {
                     pendingAlertAck = false;
                     playAckVoice(); 
                 }
             }
-        } catch(e) {}
+        } catch(e) { console.log("Polling delay"); }
     }
     setInterval(pollSupervisorTarget, 4000);
 
+    // 🔥 ΔΙΟΡΘΩΜΕΝΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ, ΜΟΝΟ ΣΤΕΛΝΟΥΝ! 🔥
     async function sendHelpAlert(type) {
-        pendingAlertAck = true;
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
         
         try {
             await fetch(`${SERVER_URL}/api/send_alert`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ station_id: stationId, alert: type })
+            }).then(() => {
+                // Ξεκινάμε να περιμένουμε απάντηση ΜΟΝΟ αφού παραδοθεί το αίτημα στον Server
+                pendingAlertAck = true;
             });
         } catch (error) { 
             console.log("Network delay ignored."); 
