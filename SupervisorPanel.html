@@ -72,7 +72,7 @@
     <div class="history-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <h2 style="color: #f9e2af; margin:0;">Shift History & Management</h2>
-            <button class="btn-end-shift" onclick="endCurrentShift()">Start New Shift (Reset All Data & Targets)</button>
+            <button class="btn-end-shift" onclick="endCurrentShift()">Start New Shift (Reset Targets Only)</button>
         </div>
         <div id="shiftHistoryList"></div>
     </div>
@@ -193,7 +193,7 @@
     }
 
     function endCurrentShift() {
-        if(!confirm("Are you sure you want to SAVE and START A NEW SHIFT?\n\nThis will completely WIPE all Production Data AND Targets from the Server!")) return;
+        if(!confirm("Are you sure you want to SAVE and START A NEW SHIFT?\n\nThis will keep the current production numbers intact until the workers reset them, but will WIPE all your Targets from the Server!")) return;
         
         let now = new Date();
         let stamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
@@ -204,11 +204,10 @@
         shiftHistoryDB.unshift(shiftRecord);
         localStorage.setItem('supervisor_shifts_db', JSON.stringify(shiftHistoryDB));
         
-        // Διαγράφει τη μνήμη των Target από τον Supervisor ώστε να μην τα ξαναστείλει
         localTargetsDB = {};
         localStorage.removeItem('supervisor_targets_db');
         
-        fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' }).then(() => {
+        fetch(`${SERVER_URL}/api/reset_targets`, { method: 'POST' }).then(() => {
             fetchServerData();
             renderShiftHistory();
         }).catch(err => alert("Error communicating with server."));
