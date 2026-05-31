@@ -65,7 +65,6 @@
         .btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
         .btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
 
-        /* Call Assistance Buttons */
         .call-container { display: flex; gap: 10px; margin-top: 15px; }
         .call-btn { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; color: #11111b; border: none; }
         .call-supervisor { background-color: #f38ba8; }
@@ -94,7 +93,6 @@
         .log-item.check { color: #fab387; }
         .log-item.sync { color: #89b4fa; }
 
-        /* INCOMING MESSAGE MODAL */
         .msg-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .msg-modal-box { background: #f38ba8; color: #11111b; padding: 40px; border-radius: 20px; text-align: center; max-width: 800px; width: 90%; box-shadow: 0 0 50px rgba(243, 139, 168, 0.6); animation: pulse 0.5s infinite alternate;}
         .msg-modal-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; }
@@ -106,7 +104,6 @@
 </head>
 <body>
 
-<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -338,6 +335,31 @@
         return "Night Shift";
     }
 
+    // 📡 Η νέα συνάρτηση που φροντίζει να είμαστε ο απόλυτος καθρέφτης του Επόπτη 📡
+    function sendSyncToServer(isOffline = false) {
+        if (!SERVER_URL || !SERVER_URL.includes("http")) return;
+        
+        if (isOffline || !activeJobId) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, status: "Offline", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
+            }).catch(e => {});
+            return;
+        }
+
+        let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
+        let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+        let currentTotalProducts = (curBoxes * prodPerBox) + looseProducts;
+        let totalShiftProducts = currentTotalProducts - startingProducts;
+        let totalShiftBoxes = curBoxes - initialJobBoxesLock;
+        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+
+        fetch(`${SERVER_URL}/api/update_station`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station_id: stationId, status: "Online", shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
+        }).catch(e => {});
+    }
+
     function refreshSavedJobsUI() {
         const listDiv = document.getElementById('savedJobsList');
         let stored = localStorage.getItem('dashboard_production_jobs_db');
@@ -395,7 +417,6 @@
             previousTotalProducts: sPr, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
             initialJobBoxesLock: initialBoxes,
-            lastSyncedTotal: 0, lastSyncedBoxes: 0, lastSyncedPallets: 0,
             timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, 
             hourCounter: 0, hourlyLabels: [], hourlyData: [], 
             logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName} (${getCurrentShift()}).`, type: `check` }]
@@ -457,15 +478,17 @@
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
         let initialCalculatedTotal = (displayBoxes * prodPerBox) + displayLoose;
+        let totalShiftProducts = initialCalculatedTotal - startingProducts;
         
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
         document.getElementById('resDifference').textContent = "0";
-        document.getElementById('resShiftTotal').textContent = "Loading...";
+        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
 
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
         buildPalletVisuals(); initChart(); updatePalletFills(initialCalculatedTotal);
+        updateShiftGoalUI(totalShiftProducts);
         
         logList.innerHTML = "";
         savedLogsArray.forEach(logItem => {
@@ -480,19 +503,8 @@
         isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
         
-        setTimeout(() => {
-            let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
-            let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
-            let currentShiftBoxes = (displayBoxes || 0) - initialJobBoxesLock;
-            
-            if (SERVER_URL && SERVER_URL.includes("http")) {
-                fetch(`${SERVER_URL}/api/update_station`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ station_id: stationId, shift_boxes: currentShiftBoxes, shift_total: currentLocalTotal, completed_pallets: readyPallets })
-                }).catch(err => console.log("Silent sync delay"));
-            }
-        }, 500);
-
+        // Μόλις φορτώσει, στέλνει την ΑΠΟΛΥΤΗ αλήθεια στον Supervisor
+        setTimeout(() => { sendSyncToServer(false); }, 500);
         pollSupervisorTarget();
     }
 
@@ -526,6 +538,9 @@
     function deleteJobFromDatabase(id, event) {
         event.stopPropagation();
         if (confirm("Are you sure you want to delete this job permanently?")) {
+            if (activeJobId === id) {
+                exitToJobList(); 
+            }
             delete jobsDatabase[id]; saveDatabaseToStorage(); refreshSavedJobsUI();
         }
     }
@@ -533,7 +548,13 @@
     function exitToJobList() {
         if (isRunning) toggleTimers();
         if (isAlarmActive) { isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; } }
-        saveActiveJobState(); activeJobId = null;
+        
+        saveActiveJobState(); 
+        activeJobId = null;
+        
+        // Λέει στον Server ότι βγήκαμε! Μηδενίζει την οθόνη του Επόπτη!
+        sendSyncToServer(true);
+
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
         document.getElementById('mainDashboard').style.display = 'none';
         document.getElementById('setupScreen').style.display = 'flex';
@@ -630,7 +651,7 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
-    // 🔥 ΑΠΟΛΥΤΑ ΔΙΟΡΘΩΜΕΝΟ: Live Update (ΔΕΝ ΑΓΓΙΖΕΙ TO HOURLY DIFFERENCE ΟΥΤΕ ΤΟ PREV TOTAL) 🔥
+    // 🔥 LIVE UPDATE: ΔΕΝ ΑΓΓΙΖΕΙ TΟ HOURLY DIFFERENCE Η ΤΟ PREV TOTAL 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -639,45 +660,23 @@
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
+        let totalShiftProducts = currentTotalProducts - startingProducts;
 
-        // 1. Ενημέρωση των Παλετών
+        // 1. Ενημέρωση Παλετών (Για να διαβαστεί το σωστό νούμερο μετά)
         updatePalletFills(currentTotalProducts); 
-        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
-        // 2. Υπολογισμός Delta για τον Server
-        let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
-        let lastBoxes = jobsDatabase[activeJobId].lastSyncedBoxes || 0;
-        let lastPallets = jobsDatabase[activeJobId].lastSyncedPallets || 0;
-
-        let deltaTotal = currentTotalProducts - lastTotal;
-        let deltaBoxes = currentBoxes - lastBoxes;
-        let deltaPallets = readyPallets - lastPallets;
-
-        // 3. Ενημέρωση UI - ΠΕΙΡΑΖΟΥΜΕ ΜΟΝΟ ΤΟ NEW TOTAL & TH ΒΑΡΔΙΑ!
+        // 2. Ενημέρωση UI (ΜΟΝΟ του New Total & Shift)
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
+        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+        updateShiftGoalUI(totalShiftProducts);
 
-        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
-        if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
-        document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
-        updateShiftGoalUI(currentDisplayedShift + deltaTotal);
-
-        // 4. Σώσιμο Κατάστασης Sync
-        jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
-        jobsDatabase[activeJobId].lastSyncedBoxes = currentBoxes;
-        jobsDatabase[activeJobId].lastSyncedPallets = readyPallets;
         jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         saveDatabaseToStorage();
 
-        if (deltaTotal !== 0 || deltaBoxes !== 0 || deltaPallets !== 0) {
-            if (SERVER_URL && SERVER_URL.includes("http")) {
-                fetch(`${SERVER_URL}/api/update_station`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ station_id: stationId, delta_boxes: deltaBoxes, delta_total: deltaTotal, delta_pallets: deltaPallets })
-                }).catch(err => console.log("Sync delay"));
-            }
-            addLogEntry(`> Live Sync: Display & Server updated (+${deltaTotal} pcs)`, 'sync');
-        }
+        // 3. Στέλνει τα δεδομένα στον Supervisor
+        sendSyncToServer(false);
+        addLogEntry(`> Live Sync: Display & Server updated to Supervisor`, 'sync');
     }
 
     // 🔥 HOURLY BOOKING: ΕΝΗΜΕΡΩΝΕΙ ΓΡΑΦΗΜΑ & HOURLY DIFFERENCE & PREV TOTAL 🔥
@@ -691,57 +690,36 @@
         if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
-        let hourlyDifference = currentTotalProducts - previousTotalProducts; // Εδώ βγαίνει η διαφορά ώρας!
+        let totalShiftProducts = currentTotalProducts - startingProducts;
+        let hourlyDifference = currentTotalProducts - previousTotalProducts; 
 
         // 1. Ενημέρωση Παλετών
         updatePalletFills(currentTotalProducts); 
-        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
-        // 2. Υπολογισμός Delta για τον Server
-        let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
-        let lastBoxes = jobsDatabase[activeJobId].lastSyncedBoxes || 0;
-        let lastPallets = jobsDatabase[activeJobId].lastSyncedPallets || 0;
-
-        let deltaTotal = currentTotalProducts - lastTotal;
-        let deltaBoxes = currentBoxes - lastBoxes;
-        let deltaPallets = readyPallets - lastPallets;
-
-        // 3. ΕΝΗΜΕΡΩΣΗ UI ΜΕ ΤΗ ΔΙΑΦΟΡΑ ΤΗΣ ΩΡΑΣ
+        // 2. ΕΝΗΜΕΡΩΣΗ UI (ΚΑΙ Η ΔΙΑΦΟΡΑ ΤΗΣ ΩΡΑΣ)
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
         document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
+        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+        updateShiftGoalUI(totalShiftProducts);
 
-        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
-        if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
-        document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
-        updateShiftGoalUI(currentDisplayedShift + deltaTotal);
-
-        // 4. ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ
+        // 3. ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(hourlyDifference); chartInstance.update();
 
         let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; let shiftName = getCurrentShift();
         addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
 
-        // 5. ΚΛΕΙΔΩΜΑ ΜΕΤΑΒΛΗΤΩΝ ΩΡΑΣ
+        // 4. ΚΛΕΙΔΩΜΑ ΜΕΤΑΒΛΗΤΩΝ ΩΡΑΣ
         lastCalculatedBoxes = currentBoxes; 
         lastCalculatedLoose = looseProducts; 
         previousTotalProducts = currentTotalProducts;
         
-        jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
-        jobsDatabase[activeJobId].lastSyncedBoxes = currentBoxes;
-        jobsDatabase[activeJobId].lastSyncedPallets = readyPallets;
         jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         saveActiveJobState(); 
 
-        if (deltaTotal !== 0 || deltaBoxes !== 0 || deltaPallets !== 0) {
-            if (SERVER_URL && SERVER_URL.includes("http")) {
-                fetch(`${SERVER_URL}/api/update_station`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ station_id: stationId, delta_boxes: deltaBoxes, delta_total: deltaTotal, delta_pallets: deltaPallets })
-                }).catch(err => console.log("Sync delay"));
-            }
-        }
+        // 5. Στέλνει τα δεδομένα στον Supervisor
+        sendSyncToServer(false);
     }
 
     async function pollSupervisorTarget() {
@@ -752,20 +730,7 @@
             
             if(data[stationId]) {
                 globalShiftTarget = data[stationId].shift_target || 0;
-                let serverTotal = data[stationId].shift_total || 0;
-                
-                let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
-                
-                if (!isNaN(currentDisplayedShift) && currentDisplayedShift > 0 && serverTotal === 0) {
-                    let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
-                    fetch(`${SERVER_URL}/api/update_station`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ station_id: stationId, shift_boxes: 0, shift_total: currentDisplayedShift, completed_pallets: readyPallets })
-                    }).catch(e => console.log(e));
-                } else {
-                    document.getElementById('resShiftTotal').textContent = serverTotal;
-                    updateShiftGoalUI(serverTotal);
-                }
+                updateShiftGoalUI(parseInt(document.getElementById('resShiftTotal').textContent) || 0);
                 
                 let sMsg = data[stationId].supervisor_message;
                 let isRead = data[stationId].message_read;
@@ -776,33 +741,27 @@
                 }
 
                 let serverAcked = data[stationId].alert_acknowledged;
-                let serverAlertActive = data[stationId].worker_alert; // Βεβαιωνόμαστε ότι όντως υπήρχε κλήση!
-
-                // ΔΙΟΡΘΩΣΗ BUG ΚΛΗΣΗΣ: Χτυπάει μόνο αν η κλήση είχε πάει, και τώρα απαντήθηκε.
-                if (pendingAlertAck && serverAcked && serverAlertActive !== "") {
+                
+                // ΔΙΟΡΘΩΣΗ ΚΛΗΣΕΩΝ: Μιλάει ΜΟΝΟ αν ο επόπτης πάτησε Acknowledge!
+                if (pendingAlertAck && serverAcked) {
                     pendingAlertAck = false;
                     playAckVoice(); 
                 }
             }
-        } catch(e) { console.log("Polling delay"); }
+        } catch(e) {}
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 ΔΙΟΡΘΩΜΕΝΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ, ΜΟΝΟ ΣΤΕΛΝΟΥΝ! 🔥
-    async function sendHelpAlert(type) {
+    // 🔥 ΔΙΟΡΘΩΜΕΝΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ! ΜΟΝΟ ΣΤΕΛΝΟΥΝ! 🔥
+    function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
         
-        try {
-            await fetch(`${SERVER_URL}/api/send_alert`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ station_id: stationId, alert: type })
-            }).then(() => {
-                // Ξεκινάμε να περιμένουμε απάντηση ΜΟΝΟ αφού παραδοθεί το αίτημα στον Server
-                pendingAlertAck = true;
-            });
-        } catch (error) { 
-            console.log("Network delay ignored."); 
-        }
+        fetch(`${SERVER_URL}/api/send_alert`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station_id: stationId, alert: type })
+        }).then(() => {
+            pendingAlertAck = true;
+        }).catch(error => { console.log("Network delay ignored."); });
     }
 
     function triggerSupervisorMessage(msgText) {
@@ -818,23 +777,22 @@
         activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000);
     }
 
-    async function acknowledgeSupervisorMessage() {
+    function acknowledgeSupervisorMessage() {
         document.getElementById('msgOverlay').style.display = 'none';
         clearInterval(activeMessageInterval);
         window.speechSynthesis.cancel();
         
         localMessageRead = true;
         
-        try {
-            await fetch(`${SERVER_URL}/api/read_message`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ station_id: stationId })
-            });
-        } catch(e) {}
+        fetch(`${SERVER_URL}/api/read_message`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ station_id: stationId })
+        }).catch(e => {});
 
         if (radioWasPlayingBeforeMsg) { startRadio(); radioWasPlayingBeforeMsg = false; }
     }
 
+    // Η φωνή που ακούγεται ΜΟΝΟ όταν ο Επόπτης απαντήσει στην κλήση
     function playAckVoice() {
         let wasRadio = !radioAudio.paused;
         stopRadio();
