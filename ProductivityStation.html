@@ -106,7 +106,6 @@
 </head>
 <body>
 
-<!-- SUPERVISOR MESSAGE MODAL -->
 <div class="msg-modal-overlay" id="msgOverlay">
     <div class="msg-modal-box">
         <div class="msg-modal-title">⚠️ SUPERVISOR MESSAGE</div>
@@ -437,7 +436,6 @@
         
         let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
         let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
-        
         let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
 
         document.getElementById('specBatchSize').textContent = batchSize.toLocaleString();
@@ -461,14 +459,12 @@
         
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
         document.getElementById('resDifference').textContent = "0";
-
         document.getElementById('resShiftTotal').textContent = "Loading...";
 
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
         buildPalletVisuals(); initChart(); updatePalletFills(initialCalculatedTotal);
-        updateShiftGoalUI(initialCalculatedTotal - startingProducts);
         
         logList.innerHTML = "";
         savedLogsArray.forEach(logItem => {
@@ -483,19 +479,6 @@
         isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
         
-        setTimeout(() => {
-            let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
-            let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
-            let currentShiftBoxes = (displayBoxes || 0) - initialJobBoxesLock;
-            
-            if (SERVER_URL && SERVER_URL.includes("http")) {
-                fetch(`${SERVER_URL}/api/update_station`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ station_id: stationId, shift_boxes: currentShiftBoxes, shift_total: currentLocalTotal, completed_pallets: readyPallets })
-                }).catch(err => console.log("Silent sync delay"));
-            }
-        }, 500);
-
         pollSupervisorTarget();
     }
 
@@ -633,6 +616,7 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
+    // 🔥 LIVE UPDATE: Ίδιοι υπολογισμοί, χωρίς το Γράφημα 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -642,10 +626,10 @@
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
 
-        // 🔥 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ 🔥
+        // 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ
         updatePalletFills(currentTotalProducts); 
 
-        // 🔥 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών 🔥
+        // 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
         let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
@@ -656,9 +640,13 @@
         let deltaBoxes = currentBoxes - lastBoxes;
         let deltaPallets = readyPallets - lastPallets;
 
-        document.getElementById('resNewTotal').textContent = currentTotalProducts;
+        let difference = currentTotalProducts - previousTotalProducts; // Δείχνει τη διαφορά μέχρι τώρα
 
-        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+        document.getElementById('resNewTotal').textContent = currentTotalProducts;
+        document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
+
+        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
+        if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
         document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
         updateShiftGoalUI(currentDisplayedShift + deltaTotal);
 
@@ -676,11 +664,13 @@
                     body: JSON.stringify({ station_id: stationId, delta_boxes: deltaBoxes, delta_total: deltaTotal, delta_pallets: deltaPallets })
                 }).catch(err => console.log("Sync delay"));
             }
+            addLogEntry(`> Live Sync: Display & Server updated (${deltaTotal >= 0 ? '+'+deltaTotal : deltaTotal} pcs)`, 'sync');
         }
-        addLogEntry(`> Live Sync: Data updated (${deltaTotal >= 0 ? '+'+deltaTotal : deltaTotal} pcs)`, 'sync');
     }
 
+    // 🔥 HOURLY BOOKING: Ίδιοι υπολογισμοί, ΠΡΟΣΘΕΤΕΙ στο Γράφημα 🔥
     function calculateProduction() {
+        if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
@@ -691,10 +681,10 @@
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
         let difference = currentTotalProducts - previousTotalProducts;
 
-        // 🔥 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ 🔥
+        // 1. Ενημέρωση των Παλετών στην Οθόνη ΠΡΩΤΑ
         updatePalletFills(currentTotalProducts); 
 
-        // 🔥 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών 🔥
+        // 2. Τώρα διαβάζουμε το ΣΩΣΤΟ νούμερο έτοιμων παλετών
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
         let lastTotal = jobsDatabase[activeJobId].lastSyncedTotal || 0;
@@ -709,16 +699,20 @@
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
         document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
 
-        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+        let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
+        if (isNaN(currentDisplayedShift)) currentDisplayedShift = 0;
         document.getElementById('resShiftTotal').textContent = currentDisplayedShift + deltaTotal;
         updateShiftGoalUI(currentDisplayedShift + deltaTotal);
 
+        // 🔥 ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ ΚΑΙ ΚΛΕΙΔΩΜΑ ΩΡΑΣ 🔥
         hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(difference); chartInstance.update();
 
         let diffStr = difference >= 0 ? "+" + difference : difference; let shiftName = getCurrentShift();
-        addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
+        addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
 
-        lastCalculatedBoxes = currentBoxes; lastCalculatedLoose = looseProducts; previousTotalProducts = currentTotalProducts;
+        lastCalculatedBoxes = currentBoxes; 
+        lastCalculatedLoose = looseProducts; 
+        previousTotalProducts = currentTotalProducts;
         
         jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
         jobsDatabase[activeJobId].lastSyncedBoxes = currentBoxes;
@@ -747,8 +741,19 @@
                 globalShiftTarget = data[stationId].shift_target || 0;
                 let serverTotal = data[stationId].shift_total || 0;
                 
-                document.getElementById('resShiftTotal').textContent = serverTotal;
-                updateShiftGoalUI(serverTotal);
+                let currentDisplayedShift = parseInt(document.getElementById('resShiftTotal').textContent);
+                
+                // Διορθώνει τον Server αν έπεσε (Self-Healing)
+                if (!isNaN(currentDisplayedShift) && currentDisplayedShift > 0 && serverTotal === 0) {
+                    let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+                    fetch(`${SERVER_URL}/api/update_station`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ station_id: stationId, shift_boxes: 0, shift_total: currentDisplayedShift, completed_pallets: readyPallets })
+                    }).catch(e => console.log(e));
+                } else {
+                    document.getElementById('resShiftTotal').textContent = serverTotal;
+                    updateShiftGoalUI(serverTotal);
+                }
                 
                 let sMsg = data[stationId].supervisor_message;
                 let isRead = data[stationId].message_read;
@@ -764,7 +769,7 @@
                     playAckVoice(); 
                 }
             }
-        } catch(e) { console.log("Polling delay"); }
+        } catch(e) {}
     }
     setInterval(pollSupervisorTarget, 4000);
 
