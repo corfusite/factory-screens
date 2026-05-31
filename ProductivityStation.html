@@ -307,6 +307,9 @@
     </div>
 </div>
 
+<div id="hiddenPalletsCount" style="display:none;">0</div>
+<audio id="radioAudio" preload="none"></audio>
+
 <script>
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
@@ -331,6 +334,9 @@
     let localMessageRead = true; 
     let activeMessageInterval = null;
     let radioWasPlayingBeforeMsg = false;
+
+    // 🔥 Ο ΕΞΥΠΝΟΣ ΤΡΟΧΟΝΟΜΟΣ ΓΙΑ ΤΙΣ ΚΛΗΣΕΙΣ 🔥
+    let alertStateMachine = 0; 
 
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
     let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
@@ -367,7 +373,7 @@
             return;
         }
 
-        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+        let readyPallets = parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0;
         let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
         let bNum = jobsDatabase[activeJobId].batchNumber || "N/A";
 
@@ -509,6 +515,7 @@
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
+        buildPalletVisuals();
         initChart();
         updatePalletFills(initialCalculatedTotal);
         updateShiftGoalUI(globalData.shiftTotal);
@@ -586,7 +593,7 @@
             batch_number: job.batchNumber,
             batch_target: job.batchSize,
             total_produced: job.lastSyncedTotal,
-            completed_pallets: parseInt(document.getElementById('val_completed').textContent) || 0,
+            completed_pallets: parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0,
             hourly_labels: globalData.chartLabels,
             hourly_data: globalData.chartData,
             logs: job.logs
@@ -604,47 +611,43 @@
         }
     }
 
+    function buildPalletVisuals() {
+        const grid = document.getElementById('palletGrid');
+        grid.innerHTML = "";
+        for (let i = 1; i <= totalPalletsNeeded; i++) {
+            let wrap = document.createElement('div'); wrap.className = 'pallet-wrapper';
+            wrap.innerHTML = `<div class="pallet-percentage" id="pPct_${i}"></div><div class="pallet-icon" id="pIcon_${i}"></div><div class="pallet-label">P${i}</div>`;
+            grid.appendChild(wrap);
+        }
+    }
+
     function updatePalletFills(currentTotal) {
-        let valCompleted = document.getElementById('val_completed');
-        let valRemaining = document.getElementById('val_remaining');
-        let boxRemaining = document.getElementById('box_remaining');
-        let activeIcon = document.getElementById('pIcon_active');
-        let pctText = document.getElementById('pPct_active');
-        if (!valCompleted || !valRemaining || !activeIcon) return;
-
+        let completedCount = 0;
         let job = jobsDatabase[activeJobId];
-        let seq = job.palletSequence || []; let totalPalletsTarget = seq.length;
-        let tempTotal = currentTotal; let completedPallets = 0; let activePalletSize = productsPerPallet; 
+        let seq = job.palletSequence || []; 
+        let tempTotal = currentTotal; 
         
-        for (let i = 0; i < seq.length; i++) {
-            if (tempTotal >= seq[i]) { completedPallets++; tempTotal -= seq[i]; } 
-            else { activePalletSize = seq[i]; break; }
+        for (let i = 1; i <= seq.length; i++) {
+            let icon = document.getElementById(`pIcon_${i}`); let pctText = document.getElementById(`pPct_${i}`);
+            if(!icon) continue;
+            
+            let palletSize = seq[i-1];
+            
+            if (tempTotal >= palletSize) {
+                icon.className = "pallet-icon full"; icon.style.setProperty('--fill-level', '100%');
+                pctText.textContent = "DONE"; pctText.style.color = "#a6e3a1";
+                completedCount++;
+                tempTotal -= palletSize;
+            } else if (tempTotal > 0) {
+                icon.className = "pallet-icon"; 
+                let pct = Math.floor((tempTotal / palletSize) * 100);
+                icon.style.setProperty('--fill-level', `${pct}%`); pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
+                tempTotal = 0;
+            } else {
+                icon.className = "pallet-icon"; icon.style.setProperty('--fill-level', '0%'); pctText.textContent = "";
+            }
         }
-
-        let inactivePallets = 0; let pct = 0;
-        if (currentTotal < batchSize) {
-            let remainingWholePallets = totalPalletsTarget - completedPallets - 1; 
-            if (remainingWholePallets < 0) remainingWholePallets = 0;
-            let activePalletRemainingFraction = (activePalletSize - tempTotal) / activePalletSize;
-            inactivePallets = remainingWholePallets + activePalletRemainingFraction;
-            pct = Math.floor((tempTotal / activePalletSize) * 100);
-        }
-
-        valCompleted.textContent = completedPallets;
-        
-        if (currentTotal >= batchSize) {
-            let extra = currentTotal - batchSize;
-            activeIcon.className = "pallet-icon full"; activeIcon.style.setProperty('--fill-level', '100%');
-            pctText.textContent = "100%"; pctText.style.color = "#a6e3a1";
-            boxRemaining.style.borderColor = "#a6e3a1"; valRemaining.style.color = "#a6e3a1";
-            if (extra > 0) { valRemaining.style.fontSize = "1.2rem"; valRemaining.innerHTML = `DONE<br><span style="font-size:0.9rem; color:#f9e2af;">+${extra} EXTRA</span>`; } 
-            else { valRemaining.style.fontSize = "1.8rem"; valRemaining.textContent = "DONE"; }
-        } else {
-            activeIcon.className = "pallet-icon"; activeIcon.style.setProperty('--fill-level', `${pct}%`);
-            pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
-            boxRemaining.style.borderColor = "#45475a"; valRemaining.style.color = "#a6adc8";
-            valRemaining.style.fontSize = "2.2rem"; valRemaining.textContent = Number(inactivePallets.toFixed(2));
-        }
+        document.getElementById('hiddenPalletsCount').textContent = completedCount;
     }
 
     function updateShiftGoalUI(currentShiftProducts) {
@@ -767,12 +770,17 @@
                     triggerSupervisorMessage(sMsg);
                 }
 
+                // 🔥 Ο ΤΡΟΧΟΝΟΜΟΣ ΤΩΝ ΚΛΗΣΕΩΝ 🔥
                 let serverAcked = data[stationId].alert_acknowledged;
-                if (serverAcked && data[stationId].worker_alert !== "") {
-                    if (window.pendingAlertCall) {
-                        window.pendingAlertCall = false;
-                        playAckVoice(); 
-                    }
+                
+                if (alertStateMachine === 1 && serverAcked === false) {
+                    // Ο Server είδε την κλήση και έβαλε ότι δεν έχει διαβαστεί. Τώρα περιμένουμε τον Επόπτη.
+                    alertStateMachine = 2;
+                } 
+                else if (alertStateMachine === 2 && serverAcked === true) {
+                    // Ο Επόπτης το διάβασε (το γύρισε σε true). Τώρα μιλάμε!
+                    alertStateMachine = 0;
+                    playAckVoice(); 
                 }
             }
         } catch(e) {}
@@ -781,7 +789,7 @@
 
     function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
-        window.pendingAlertCall = true; 
+        alertStateMachine = 1; // Βάζουμε το μηχάνημα σε κατάσταση "Περιμένω τον Server"
 
         if (SERVER_URL && SERVER_URL.includes("http")) {
             fetch(`${SERVER_URL}/api/send_alert`, {
