@@ -271,7 +271,8 @@
                     </div>
 
                     <div class="results-box">
-                        <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
+                        <!-- 🔥 ΕΔΩ ΠΡΟΣΤΕΘΗΚΑΝ ΤΑ PCS ΓΙΑ ΝΑ ΒΛΕΠΕΙ Ο ΕΡΓΑΤΗΣ ΠΑΝΤΑ ΤΟ ΣΥΝΟΛΟ ΠΡΟΪΟΝΤΩΝ 🔥 -->
+                        <div class="result-row"><span>Target (Pallets | Boxes | Pcs):</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
                         <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row shift-total"><span>Accumulated Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
@@ -335,7 +336,6 @@
     let activeMessageInterval = null;
     let radioWasPlayingBeforeMsg = false;
 
-    // 🔥 Ο ΕΞΥΠΝΟΣ ΤΡΟΧΟΝΟΜΟΣ ΓΙΑ ΤΙΣ ΚΛΗΣΕΙΣ 🔥
     let alertStateMachine = 0; 
 
     let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
@@ -504,7 +504,9 @@
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
-        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets | ${exactBoxes} Boxes`;
+        // 🔥 ΕΜΦΑΝΙΣΗ ΑΚΡΙΒΟΥΣ ΑΡΙΘΜΟΥ ΠΡΟΪΟΝΤΩΝ ΜΑΖΙ ΜΕ ΠΑΛΕΤΕΣ ΚΑΙ ΚΟΥΤΙΑ 🔥
+        document.getElementById('resTargetPallets').textContent = `${exactPallets} Plts | ${exactBoxes} Bxs | ${batchSize.toLocaleString()} Pcs`;
+        
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
         let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
@@ -584,6 +586,7 @@
         refreshSavedJobsUI();
     }
 
+    // 🔥 ΣΤΕΛΝΕΙ ΟΛΑ ΤΑ ΣΤΟΙΧΕΙΑ ΣΤΟ REPORTS HUB ΟΤΑΝ ΤΕΛΕΙΩΝΕΙ Η ΔΟΥΛΕΙΑ 🔥
     function finishJobAndReport() {
         if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub with all hourly details, and removed from your screen.")) return;
         
@@ -594,6 +597,10 @@
             batch_target: job.batchSize,
             total_produced: job.lastSyncedTotal,
             completed_pallets: parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0,
+            prod_per_box: job.prodPerBox,
+            boxes_per_layer: job.boxesPerLayer,
+            layers_per_pallet: job.layersPerPallet,
+            starting_products: job.startingProducts,
             hourly_labels: globalData.chartLabels,
             hourly_data: globalData.chartData,
             logs: job.logs
@@ -770,15 +777,12 @@
                     triggerSupervisorMessage(sMsg);
                 }
 
-                // 🔥 Ο ΤΡΟΧΟΝΟΜΟΣ ΤΩΝ ΚΛΗΣΕΩΝ 🔥
                 let serverAcked = data[stationId].alert_acknowledged;
                 
                 if (alertStateMachine === 1 && serverAcked === false) {
-                    // Ο Server είδε την κλήση και έβαλε ότι δεν έχει διαβαστεί. Τώρα περιμένουμε τον Επόπτη.
                     alertStateMachine = 2;
                 } 
                 else if (alertStateMachine === 2 && serverAcked === true) {
-                    // Ο Επόπτης το διάβασε (το γύρισε σε true). Τώρα μιλάμε!
                     alertStateMachine = 0;
                     playAckVoice(); 
                 }
@@ -789,7 +793,7 @@
 
     function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
-        alertStateMachine = 1; // Βάζουμε το μηχάνημα σε κατάσταση "Περιμένω τον Server"
+        alertStateMachine = 1; 
 
         if (SERVER_URL && SERVER_URL.includes("http")) {
             fetch(`${SERVER_URL}/api/send_alert`, {
