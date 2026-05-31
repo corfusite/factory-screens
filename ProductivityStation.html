@@ -40,14 +40,12 @@
         .shift-goal-track { background: #313244; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
         .shift-goal-fill { background: #89b4fa; height: 100%; width: 0%; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; box-sizing: border-box; color:#11111b; font-weight:bold; font-size:0.8rem;}
 
-        .pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; }
-        .pallet-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; justify-items: center; }
-        .pallet-wrapper { text-align: center; width: 70px; }
-        .pallet-percentage { font-size: 0.9rem; font-weight: bold; color: #fab387; height: 15px; margin-bottom: 2px; font-family: monospace; }
-        .pallet-icon { width: 50px; height: 45px; background-color: #313244; border: 3px solid #6c7086; border-radius: 6px; position: relative; margin: 0 auto; transition: all 0.3s; }
+        .pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; display: flex; justify-content: space-around; align-items: center;}
+        .pallet-wrapper { text-align: center; width: 120px; }
+        .pallet-percentage { font-size: 1.1rem; font-weight: bold; color: #fab387; margin-bottom: 5px; font-family: monospace; }
+        .pallet-icon { width: 60px; height: 50px; background-color: #313244; border: 3px solid #6c7086; border-radius: 6px; position: relative; margin: 0 auto; transition: all 0.3s; }
         .pallet-icon.full { background-color: #a6e3a1; border-color: #a6e3a1; box-shadow: 0 0 10px rgba(166, 227, 161, 0.4); }
         .pallet-icon::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: var(--fill-level, 0%); background-color: #a6e3a1; transition: height 0.3s; border-radius: 0 0 3px 3px; }
-        .pallet-label { font-size: 0.9rem; color: #a6adc8; margin-top: 4px; font-weight: bold; }
         
         .specs-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 1rem; background-color: #11111b; border-radius: 8px; overflow: hidden; }
         .specs-table th, .specs-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #313244; }
@@ -60,7 +58,7 @@
         .btn-alarm { background-color: #f38ba8; color: #11111b; width: 100%; display: none; font-size: 1.5rem; padding: 15px; margin-top: 10px; animation: pulse 0.5s infinite alternate; box-shadow: 0 0 20px #f38ba8; }
         .btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
         .btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
-        
+
         .call-container { display: flex; gap: 10px; margin-top: 15px; }
         .call-btn { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; color: #11111b; border: none; }
         .call-supervisor { background-color: #f38ba8; }
@@ -97,7 +95,6 @@
 
         @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
     </style>
-    <script src="stations.js"></script>
 </head>
 <body>
 
@@ -113,7 +110,7 @@
     <h1>Production Dashboard<span id="voiceIndicator" class="voice-indicator"></span></h1>
     
     <div id="setupScreen" class="setup-screen section-frame">
-        <h2 style="color: #fab387; margin: 0;">Job Management Manager</h2>
+        <h2 style="color: #fab387; margin: 0;">Job Management & Station Setup</h2>
         
         <div class="job-list-container">
             <div class="job-list-title">Saved Active Jobs List</div>
@@ -137,31 +134,42 @@
                 </select>
             </div>
             <div style="flex: 1;">
-                <label style="color:#b4befe; font-weight:bold;">Order ID / Batch Number:</label>
+                <label style="color:#b4befe; font-weight:bold;">Batch Number / Order ID:</label>
                 <input type="text" id="setupBatchNumber" placeholder="e.g. BATCH-1002" style="background-color: #11111b; color: #b4befe; font-weight: bold;">
             </div>
         </div>
 
         <div class="setup-grid">
-            <div>
+            <div class="field-group">
                 <label>Batch Size (Total Units)</label>
                 <input type="number" id="setupBatchSize" value="30000" min="0" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Products per Box</label>
                 <input type="number" id="setupProdPerBox" value="6" min="1" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Boxes per Layer</label>
                 <input type="number" id="setupBoxesPerLayer" value="72" min="1" onclick="this.select()">
             </div>
-            <div>
+            <div class="field-group">
                 <label>Layers per Pallet</label>
                 <input type="number" id="setupLayersPerPallet" value="12" min="1" onclick="this.select()">
             </div>
-            <div style="grid-column: span 2;">
+            <div class="field-group" style="grid-column: span 2;">
                 <label>Starting Products (Already Done)</label>
                 <input type="number" id="setupStartingProd" value="0" min="0" onclick="this.select()">
+            </div>
+            
+            <div class="field-group" style="grid-column: span 2;">
+                <label style="color:#fab387;">Custom Pallets (Pcs) & Position</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="text" id="setupCustomPallets" placeholder="e.g. 2000, 3000 (leave empty if standard)" onclick="this.select()" style="flex: 2; margin-bottom: 0;">
+                    <select id="setupCustomPos" style="flex: 1; margin-bottom: 0;">
+                        <option value="end">At End</option>
+                        <option value="start">At Start</option>
+                    </select>
+                </div>
             </div>
         </div>
         <button class="btn-main" style="max-width: 300px;" onclick="createNewJobConfiguration()">Start & Save New Job</button>
@@ -199,13 +207,25 @@
 
                 <div class="section-frame">
                     <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
-                    <div class="pallet-container">
-                        <div id="palletGrid" class="pallet-grid"></div>
+                    <div class="pallet-container" id="palletGrid">
+                        <div class="pallet-wrapper">
+                            <div style="font-size:1rem; color:#a6e3a1; margin-bottom:8px; font-weight:bold;">COMPLETED</div>
+                            <div style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #a6e3a1; border-radius:10px;"><span id="val_completed" style="color:#a6e3a1; font-weight:900; font-size:2.5rem;">0</span></div>
+                        </div>
+                        <div class="pallet-wrapper" style="width: 100px;">
+                            <div class="pallet-percentage" id="pPct_active" style="font-size: 1.1rem; margin-bottom:5px;">0%</div>
+                            <div class="pallet-icon" id="pIcon_active" style="width:60px; height:50px;"></div>
+                            <div style="font-size:0.9rem; color:#fab387; margin-top:8px; font-weight:bold;">ACTIVE</div>
+                        </div>
+                        <div class="pallet-wrapper">
+                            <div style="font-size:1rem; color:#a6adc8; margin-bottom:8px; font-weight:bold;">REMAINING</div>
+                            <div id="box_remaining" style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #45475a; border-radius:10px; transition: all 0.3s;"><span id="val_remaining" style="color:#a6adc8; font-weight:900; font-size:2.2rem;">0</span></div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="section-frame">
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications (<span id="activeStationDisplay" style="color:#f9e2af;"></span> | <span id="shiftDisplayTop" style="color:#a6e3a1;"></span>)</div>
                     <table class="specs-table">
                         <thead>
                             <tr><th>Parameter</th><th>Value</th></tr>
@@ -228,7 +248,7 @@
                     </div>
 
                     <button class="btn-secondary" onclick="exitToJobList()">Pause & Back to List (Keep Saved)</button>
-                    <button class="btn-main" style="background-color: #f38ba8; margin-top: 10px; padding: 15px;" onclick="finishJobAndReport()">Finish Job & Send to Reports</button>
+                    <button class="btn-main" style="background-color: #f38ba8; margin-top: 10px; padding: 15px;" onclick="finishJobAndReport()">Finish Job & Send to Reports Hub</button>
                 </div>
             </div>
 
@@ -275,8 +295,8 @@
                 </div>
             </div>
             <div class="section-frame">
-                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant</div>
-                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading...</option></select>
+                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant System</div>
+                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading voices...</option></select>
             </div>
         </div>
 
@@ -286,9 +306,6 @@
         </div>
     </div>
 </div>
-
-<div id="hiddenPalletsCount" style="display:none;">0</div>
-<audio id="radioAudio" preload="none"></audio>
 
 <script>
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
@@ -339,7 +356,6 @@
         return "Night Shift";
     }
 
-    // 📡 Η επικοινωνία με τον Server στέλνει πλέον ΚΑΙ το Batch Number 📡
     function sendSyncToServer(isOffline = false) {
         if (!SERVER_URL || !SERVER_URL.includes("http")) return;
         
@@ -351,7 +367,7 @@
             return;
         }
 
-        let readyPallets = parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0;
+        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
         let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
         let bNum = jobsDatabase[activeJobId].batchNumber || "N/A";
 
@@ -384,9 +400,10 @@
             let job = jobsDatabase[id];
             let row = document.createElement('div');
             row.className = 'job-item-row';
+            let sName = STATION_NAMES[job.stationId] || "Unknown";
             row.innerHTML = `
                 <div class="job-info-text" onclick="loadSelectedJob('${id}')">
-                    💼 Batch: ${job.batchNumber} | Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
+                    💼 [${sName}] Batch: ${job.batchNumber} | Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
                 </div>
                 <button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>
             `;
@@ -409,6 +426,13 @@
         let lPl = Math.max(1, parseInt(document.getElementById('setupLayersPerPallet').value) || 12);
         let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
 
+        let customStr = document.getElementById('setupCustomPallets').value;
+        let customPos = document.getElementById('setupCustomPos').value; 
+        let customArr = [];
+        if (customStr.trim() !== "") {
+            customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+        }
+
         let initialBoxes = sPr > 0 ? Math.floor(sPr / pBx) : 0;
         let initialLoose = sPr > 0 ? sPr % pBx : 0;
         let initialTotal = (initialBoxes * pBx) + initialLoose;
@@ -416,6 +440,7 @@
         jobsDatabase[id] = {
             id: id, createdTime: timestamp, stationId: stId, batchNumber: bNum,
             batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
+            customPallets: customArr, customPos: customPos, 
             previousTotalProducts: initialTotal, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
             initialJobBoxesLock: initialBoxes, lastSyncedTotal: initialTotal,
@@ -423,7 +448,8 @@
             logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName} (${getCurrentShift()}).`, type: `check` }]
         };
 
-        document.getElementById('setupBatchNumber').value = ""; // Καθαρίζει το πεδίο
+        document.getElementById('setupBatchNumber').value = ""; 
+        document.getElementById('setupCustomPallets').value = ""; 
         saveDatabaseToStorage();
         loadSelectedJob(id);
     }
@@ -443,7 +469,24 @@
         savedLogsArray = [...job.logs];
 
         productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
-        totalPalletsNeeded = Math.ceil(batchSize / productsPerPallet);
+        
+        let customArr = job.customPallets || [];
+        let customPos = job.customPos || "end";
+        let sumCustom = customArr.reduce((a, b) => a + b, 0);
+        let standardPcs = Math.max(0, batchSize - sumCustom);
+        
+        let sequence = [];
+        while (standardPcs > 0) {
+            if (standardPcs >= productsPerPallet) { sequence.push(productsPerPallet); standardPcs -= productsPerPallet; } 
+            else { sequence.push(standardPcs); standardPcs = 0; }
+        }
+        
+        if (customPos === "start") job.palletSequence = customArr.concat(sequence);
+        else job.palletSequence = sequence.concat(customArr);
+        
+        let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
+        let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
+        let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
 
         document.getElementById('specBatchSize').textContent = batchSize.toLocaleString();
         document.getElementById('specProdPerBox').textContent = prodPerBox;
@@ -455,7 +498,7 @@
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
-        document.getElementById('resTargetPallets').textContent = `${totalPalletsNeeded} Pallets (${Math.ceil(batchSize/prodPerBox)} Boxes)`;
+        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets | ${exactBoxes} Boxes`;
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
         let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
@@ -466,7 +509,6 @@
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
-        buildPalletVisuals();
         initChart();
         updatePalletFills(initialCalculatedTotal);
         updateShiftGoalUI(globalData.shiftTotal);
@@ -535,9 +577,8 @@
         refreshSavedJobsUI();
     }
 
-    // 🔥 ΝΕΑ ΛΕΙΤΟΥΡΓΙΑ: ΤΕΛΕΙΩΝΕΙ ΤΗ ΔΟΥΛΕΙΑ ΚΑΙ ΤΗΝ ΣΤΕΛΝΕΙ ΣΤΟ ΚΕΝΤΡΙΚΟ ΙΣΤΟΡΙΚΟ 🔥
     function finishJobAndReport() {
-        if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub and removed from your screen.")) return;
+        if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub with all hourly details, and removed from your screen.")) return;
         
         let job = jobsDatabase[activeJobId];
         let reportData = {
@@ -545,7 +586,10 @@
             batch_number: job.batchNumber,
             batch_target: job.batchSize,
             total_produced: job.lastSyncedTotal,
-            completed_pallets: parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0
+            completed_pallets: parseInt(document.getElementById('val_completed').textContent) || 0,
+            hourly_labels: globalData.chartLabels,
+            hourly_data: globalData.chartData,
+            logs: job.logs
         };
 
         if (SERVER_URL && SERVER_URL.includes("http")) {
@@ -560,35 +604,47 @@
         }
     }
 
-    function buildPalletVisuals() {
-        const grid = document.getElementById('palletGrid');
-        grid.innerHTML = "";
-        for (let i = 1; i <= totalPalletsNeeded; i++) {
-            let wrap = document.createElement('div'); wrap.className = 'pallet-wrapper';
-            wrap.innerHTML = `<div class="pallet-percentage" id="pPct_${i}"></div><div class="pallet-icon" id="pIcon_${i}"></div><div class="pallet-label">P${i}</div>`;
-            grid.appendChild(wrap);
-        }
-    }
-
     function updatePalletFills(currentTotal) {
-        let completedCount = 0;
-        for (let i = 1; i <= totalPalletsNeeded; i++) {
-            let icon = document.getElementById(`pIcon_${i}`); let pctText = document.getElementById(`pPct_${i}`);
-            if(!icon) continue;
-            let minRange = (i - 1) * productsPerPallet, maxRange = i * productsPerPallet;
-            if (currentTotal >= maxRange) {
-                icon.className = "pallet-icon full"; icon.style.setProperty('--fill-level', '100%');
-                pctText.textContent = "DONE"; pctText.style.color = "#a6e3a1";
-                completedCount++;
-            } else if (currentTotal > minRange && currentTotal < maxRange) {
-                icon.className = "pallet-icon"; let remainingInPallet = currentTotal - minRange;
-                let pct = Math.floor((remainingInPallet / productsPerPallet) * 100);
-                icon.style.setProperty('--fill-level', `${pct}%`); pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
-            } else {
-                icon.className = "pallet-icon"; icon.style.setProperty('--fill-level', '0%'); pctText.textContent = "";
-            }
+        let valCompleted = document.getElementById('val_completed');
+        let valRemaining = document.getElementById('val_remaining');
+        let boxRemaining = document.getElementById('box_remaining');
+        let activeIcon = document.getElementById('pIcon_active');
+        let pctText = document.getElementById('pPct_active');
+        if (!valCompleted || !valRemaining || !activeIcon) return;
+
+        let job = jobsDatabase[activeJobId];
+        let seq = job.palletSequence || []; let totalPalletsTarget = seq.length;
+        let tempTotal = currentTotal; let completedPallets = 0; let activePalletSize = productsPerPallet; 
+        
+        for (let i = 0; i < seq.length; i++) {
+            if (tempTotal >= seq[i]) { completedPallets++; tempTotal -= seq[i]; } 
+            else { activePalletSize = seq[i]; break; }
         }
-        document.getElementById('hiddenPalletsCount').textContent = completedCount;
+
+        let inactivePallets = 0; let pct = 0;
+        if (currentTotal < batchSize) {
+            let remainingWholePallets = totalPalletsTarget - completedPallets - 1; 
+            if (remainingWholePallets < 0) remainingWholePallets = 0;
+            let activePalletRemainingFraction = (activePalletSize - tempTotal) / activePalletSize;
+            inactivePallets = remainingWholePallets + activePalletRemainingFraction;
+            pct = Math.floor((tempTotal / activePalletSize) * 100);
+        }
+
+        valCompleted.textContent = completedPallets;
+        
+        if (currentTotal >= batchSize) {
+            let extra = currentTotal - batchSize;
+            activeIcon.className = "pallet-icon full"; activeIcon.style.setProperty('--fill-level', '100%');
+            pctText.textContent = "100%"; pctText.style.color = "#a6e3a1";
+            boxRemaining.style.borderColor = "#a6e3a1"; valRemaining.style.color = "#a6e3a1";
+            if (extra > 0) { valRemaining.style.fontSize = "1.2rem"; valRemaining.innerHTML = `DONE<br><span style="font-size:0.9rem; color:#f9e2af;">+${extra} EXTRA</span>`; } 
+            else { valRemaining.style.fontSize = "1.8rem"; valRemaining.textContent = "DONE"; }
+        } else {
+            activeIcon.className = "pallet-icon"; activeIcon.style.setProperty('--fill-level', `${pct}%`);
+            pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
+            boxRemaining.style.borderColor = "#45475a"; valRemaining.style.color = "#a6adc8";
+            valRemaining.style.fontSize = "2.2rem"; valRemaining.textContent = Number(inactivePallets.toFixed(2));
+        }
     }
 
     function updateShiftGoalUI(currentShiftProducts) {
