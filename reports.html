@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Production Reports Hub</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #a6e3a1; text-align: center; margin-bottom: 20px; font-size: 2.5rem; }
+        
+        .controls { background-color: #313244; padding: 20px; border-radius: 15px; width: 100%; max-width: 1000px; display: flex; gap: 15px; margin-bottom: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+        .search-box { flex: 1; padding: 12px; font-size: 1.2rem; border-radius: 8px; border: 2px solid #45475a; background-color: #1e1e2e; color: #fff; }
+        .btn-print { background-color: #89b4fa; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        .btn-print:hover { background-color: #b4befe; }
+        .btn-refresh { background-color: #fab387; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; }
+
+        .reports-container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 15px; }
+        .report-card { background-color: #1e1e2e; border: 2px solid #45475a; border-left: 8px solid #a6e3a1; border-radius: 10px; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .report-details { display: flex; flex-direction: column; gap: 8px; }
+        .report-title { font-size: 1.4rem; font-weight: bold; color: #f9e2af; }
+        .report-batch { font-family: monospace; font-size: 1.2rem; color: #b4befe; background: #313244; padding: 4px 8px; border-radius: 5px; display: inline-block; }
+        .report-stats { font-size: 1.1rem; color: #cdd6f4; }
+        .report-time { font-size: 0.9rem; color: #6c7086; font-style: italic; margin-top: 10px; }
+
+        /* 🔥 ΕΙΔΙΚΟ CSS ΓΙΑ ΤΗΝ ΕΚΤΥΠΩΣΗ (PDF) 🔥 */
+        @media print {
+            body { background-color: white; color: black; padding: 0; }
+            .controls { display: none !important; }
+            h1 { color: black; border-bottom: 2px solid black; padding-bottom: 10px; }
+            .report-card { border: 1px solid #ccc; border-left: 5px solid black; background-color: white; page-break-inside: avoid; margin-bottom: 10px; }
+            .report-title, .report-stats, .report-time { color: black; }
+            .report-batch { background: #eee; color: black; border: 1px solid #999; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>📋 Production Reports & History Hub</h1>
+    
+    <div class="controls">
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search by Batch Number or Order ID..." onkeyup="filterReports()">
+        <button class="btn-refresh" onclick="fetchReports()">↻ Refresh</button>
+        <button class="btn-print" onclick="window.print()">🖨️ Print PDF Report</button>
+    </div>
+
+    <div class="reports-container" id="reportsList">
+        <div style="text-align: center; color: #6c7086; font-style: italic;">Loading reports from server...</div>
+    </div>
+
+<script>
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
+    const SERVER_URL = "https://my-factory-server.onrender.com";
+    
+    let allReports = [];
+
+    async function fetchReports() {
+        const list = document.getElementById('reportsList');
+        list.innerHTML = "<div style='text-align: center; color: #f9e2af;'>Fetching data...</div>";
+        try {
+            const response = await fetch(`${SERVER_URL}/api/get_reports`);
+            allReports = await response.json();
+            renderReports(allReports);
+        } catch (error) {
+            list.innerHTML = "<div style='text-align: center; color: #f38ba8;'>Error connecting to Server.</div>";
+        }
+    }
+
+    function renderReports(reports) {
+        const list = document.getElementById('reportsList');
+        list.innerHTML = "";
+        
+        if (reports.length === 0) {
+            list.innerHTML = "<div style='text-align: center; color: #6c7086; font-style: italic;'>No completed jobs found in the database.</div>";
+            return;
+        }
+
+        reports.forEach(report => {
+            let card = document.createElement('div');
+            card.className = "report-card";
+            card.innerHTML = `
+                <div class="report-details">
+                    <div class="report-title">${report.station_name}</div>
+                    <div><span class="report-batch">Batch / Order ID: ${report.batch_number}</span></div>
+                    <div class="report-stats">
+                        <strong>Target:</strong> ${report.batch_target} pcs &nbsp; | &nbsp; 
+                        <strong>Produced:</strong> <span style="color:#a6e3a1; font-weight:bold;">${report.total_produced} pcs</span> &nbsp; | &nbsp; 
+                        <strong>Pallets:</strong> ${report.completed_pallets}
+                    </div>
+                    <div class="report-time">Completed on: ${report.timestamp}</div>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+    }
+
+    function filterReports() {
+        let query = document.getElementById('searchInput').value.toLowerCase();
+        let filtered = allReports.filter(r => r.batch_number.toLowerCase().includes(query) || r.station_name.toLowerCase().includes(query));
+        renderReports(filtered);
+    }
+
+    // Φόρτωση αναφορών με το άνοιγμα της σελίδας
+    fetchReports();
+</script>
+</body>
+</html>
