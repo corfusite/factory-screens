@@ -60,8 +60,7 @@
         .btn-alarm { background-color: #f38ba8; color: #11111b; width: 100%; display: none; font-size: 1.5rem; padding: 15px; margin-top: 10px; animation: pulse 0.5s infinite alternate; box-shadow: 0 0 20px #f38ba8; }
         .btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
         .btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
-        .btn-print { background-color: #f38ba8; color: #11111b; width: 100%; margin-top: 20px; border: 2px solid #11111b; }
-
+        
         .call-container { display: flex; gap: 10px; margin-top: 15px; }
         .call-btn { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; color: #11111b; border: none; }
         .call-supervisor { background-color: #f38ba8; }
@@ -97,19 +96,8 @@
         .msg-ack-btn { background: #11111b; color: #f38ba8; font-size: 2rem; padding: 20px 40px; width: 100%; border-radius: 15px; cursor: pointer; font-weight: bold;}
 
         @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
-
-        /* 🔥 ΕΙΔΙΚΟΙ ΚΑΝΟΝΕΣ ΕΚΤΥΠΩΣΗΣ (PDF) 🔥 */
-        @media print {
-            body { background: white !important; color: black !important; }
-            .container { box-shadow: none; background: white; padding: 0; width: 100%; max-width: 100%; }
-            .setup-screen, .bottom-controls, .call-container, .log-container, button, .timers-row, .shift-goal-container { display: none !important; }
-            .section-frame { border: 1px solid #000; background: white !important; }
-            * { color: black !important; text-shadow: none !important; }
-            .result-row span { color: black !important; font-weight: bold; }
-            canvas { background-color: white !important; }
-            h1 { color: black !important; }
-        }
     </style>
+    <script src="stations.js"></script>
 </head>
 <body>
 
@@ -136,16 +124,22 @@
 
         <h3 style="color: #89b4fa; margin: 10px 0 0 0;">Create New Production Job</h3>
         
-        <div style="width: 100%; max-width: 600px; margin-bottom: 10px;">
-            <label style="color:#a6adc8; font-weight:bold;">Select Station:</label>
-            <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
-                <option value="1">Line 1</option>
-                <option value="2">Line 2</option>
-                <option value="3">Line 3</option>
-                <option value="4">Line 4</option>
-                <option value="5">Pouch</option>
-                <option value="6">Powder Room</option>
-            </select>
+        <div style="width: 100%; max-width: 600px; margin-bottom: 10px; display: flex; gap: 15px;">
+            <div style="flex: 1;">
+                <label style="color:#a6adc8; font-weight:bold;">Select Station:</label>
+                <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
+                    <option value="1">Line 1</option>
+                    <option value="2">Line 2</option>
+                    <option value="3">Line 3</option>
+                    <option value="4">Line 4</option>
+                    <option value="5">Pouch</option>
+                    <option value="6">Powder Room</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label style="color:#b4befe; font-weight:bold;">Order ID / Batch Number:</label>
+                <input type="text" id="setupBatchNumber" placeholder="e.g. BATCH-1002" style="background-color: #11111b; color: #b4befe; font-weight: bold;">
+            </div>
         </div>
 
         <div class="setup-grid">
@@ -211,12 +205,13 @@
                 </div>
 
                 <div class="section-frame">
-                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications (<span id="activeStationDisplay" style="color:#f9e2af;"></span> | <span id="shiftDisplayTop" style="color:#a6e3a1;"></span>)</div>
+                    <div style="font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px;">Active Job Specifications</div>
                     <table class="specs-table">
                         <thead>
                             <tr><th>Parameter</th><th>Value</th></tr>
                         </thead>
                         <tbody>
+                            <tr><td>Batch Number / Order ID</td><td id="specBatchNumber" style="color:#b4befe;">-</td></tr>
                             <tr><td>Total Batch Target (Units)</td><td id="specBatchSize">-</td></tr>
                             <tr><td>Products per Box</td><td id="specProdPerBox">-</td></tr>
                             <tr><td>Boxes per Layer</td><td id="specBoxesPerLayer">-</td></tr>
@@ -232,8 +227,8 @@
                         <button class="call-btn call-eng" onclick="sendHelpAlert('Engineer')">Call Engineer</button>
                     </div>
 
-                    <button class="btn-secondary" onclick="exitToJobList()">← Save & Back to Job List</button>
-                    <button class="btn-print" onclick="endShiftAndPrint()">End Shift & Save PDF Report</button>
+                    <button class="btn-secondary" onclick="exitToJobList()">Pause & Back to List (Keep Saved)</button>
+                    <button class="btn-main" style="background-color: #f38ba8; margin-top: 10px; padding: 15px;" onclick="finishJobAndReport()">Finish Job & Send to Reports</button>
                 </div>
             </div>
 
@@ -280,8 +275,8 @@
                 </div>
             </div>
             <div class="section-frame">
-                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant System</div>
-                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading voices...</option></select>
+                <div style="font-size: 0.9rem; color: #a6adc8; margin-bottom: 3px; font-weight: bold;">Voice Assistant</div>
+                <select id="voiceSelector" onchange="onVoiceChange()"><option value="">Loading...</option></select>
             </div>
         </div>
 
@@ -307,7 +302,6 @@
     let activeJobId = null;
     let jobsDatabase = {};
 
-    // 🔥 Η ΠΑΓΚΟΣΜΙΑ ΜΝΗΜΗ ΤΗΣ ΒΑΡΔΙΑΣ 🔥
     let globalData = JSON.parse(localStorage.getItem('station_global_db')) || {
         shiftTotal: 0,
         chartLabels: [],
@@ -345,26 +339,28 @@
         return "Night Shift";
     }
 
-    // 📡 Στέλνει τα νούμερα της Βάρδιας (όχι της δουλειάς) στον Επόπτη 📡
+    // 📡 Η επικοινωνία με τον Server στέλνει πλέον ΚΑΙ το Batch Number 📡
     function sendSyncToServer(isOffline = false) {
         if (!SERVER_URL || !SERVER_URL.includes("http")) return;
         
         if (isOffline || !activeJobId) {
             fetch(`${SERVER_URL}/api/update_station`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ station_id: stationId, status: "Offline", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
+                body: JSON.stringify({ station_id: stationId, status: "Offline", batch_number: "-", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
             }).catch(e => {});
             return;
         }
 
         let readyPallets = parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0;
         let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
+        let bNum = jobsDatabase[activeJobId].batchNumber || "N/A";
 
         fetch(`${SERVER_URL}/api/update_station`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 station_id: stationId, 
                 status: "Online", 
+                batch_number: bNum,
                 shift_boxes: curBoxes, 
                 shift_total: globalData.shiftTotal, 
                 completed_pallets: readyPallets 
@@ -388,10 +384,9 @@
             let job = jobsDatabase[id];
             let row = document.createElement('div');
             row.className = 'job-item-row';
-            let sName = STATION_NAMES[job.stationId] || "Unknown";
             row.innerHTML = `
                 <div class="job-info-text" onclick="loadSelectedJob('${id}')">
-                    💼 [${sName}] Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
+                    💼 Batch: ${job.batchNumber} | Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})
                 </div>
                 <button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>
             `;
@@ -406,6 +401,7 @@
 
         let stId = document.getElementById('setupStationId').value;
         let sName = STATION_NAMES[stId] || "Unknown";
+        let bNum = document.getElementById('setupBatchNumber').value || "No-Batch";
 
         let bSz = Math.max(0, parseInt(document.getElementById('setupBatchSize').value) || 30000);
         let pBx = Math.max(1, parseInt(document.getElementById('setupProdPerBox').value) || 6);
@@ -418,16 +414,16 @@
         let initialTotal = (initialBoxes * pBx) + initialLoose;
 
         jobsDatabase[id] = {
-            id: id, createdTime: timestamp, stationId: stId,
+            id: id, createdTime: timestamp, stationId: stId, batchNumber: bNum,
             batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
             previousTotalProducts: initialTotal, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
-            initialJobBoxesLock: initialBoxes,
-            lastSyncedTotal: initialTotal,
+            initialJobBoxesLock: initialBoxes, lastSyncedTotal: initialTotal,
             timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, 
             logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName} (${getCurrentShift()}).`, type: `check` }]
         };
 
+        document.getElementById('setupBatchNumber').value = ""; // Καθαρίζει το πεδίο
         saveDatabaseToStorage();
         loadSelectedJob(id);
     }
@@ -437,7 +433,8 @@
         let job = jobsDatabase[id];
 
         stationId = job.stationId || "1";
-        document.getElementById('activeStationDisplay').textContent = STATION_NAMES[stationId] || "Unknown";
+        document.getElementById('activeStationDisplay').textContent = `${STATION_NAMES[stationId]} | ${getCurrentShift()}`;
+        document.getElementById('specBatchNumber').textContent = job.batchNumber || "-";
 
         batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer;
         layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts;
@@ -530,8 +527,6 @@
         
         saveActiveJobState(); 
         activeJobId = null;
-        
-        // Λέει στον Server ότι βγήκαμε (μηδενίζει τον Επόπτη)
         sendSyncToServer(true);
 
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
@@ -540,28 +535,29 @@
         refreshSavedJobsUI();
     }
 
-    // 🔥 ΛΗΞΗ ΒΑΡΔΙΑΣ & ΕΚΤΥΠΩΣΗ 🔥
-    function endShiftAndPrint() {
-        if(!confirm("Are you sure you want to END THE SHIFT? \n\nThis will open the Print window for saving your PDF, and then it will DELETE all jobs and reset the Shift Total back to zero!")) return;
+    // 🔥 ΝΕΑ ΛΕΙΤΟΥΡΓΙΑ: ΤΕΛΕΙΩΝΕΙ ΤΗ ΔΟΥΛΕΙΑ ΚΑΙ ΤΗΝ ΣΤΕΛΝΕΙ ΣΤΟ ΚΕΝΤΡΙΚΟ ΙΣΤΟΡΙΚΟ 🔥
+    function finishJobAndReport() {
+        if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub and removed from your screen.")) return;
         
-        // Κρύβει τα περιττά για την εκτύπωση
-        document.getElementById('setupScreen').style.display = 'none';
-        
-        // Καλούμε την εκτύπωση του browser
-        window.print();
-        
-        // ΜΗΔΕΝΙΣΜΟΣ ΠΑΝΤΩΝ!
-        localStorage.removeItem('station_global_db');
-        localStorage.removeItem('dashboard_production_jobs_db');
-        jobsDatabase = {};
-        globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
-        
-        sendSyncToServer(true);
-        
-        activeJobId = null;
-        document.getElementById('mainDashboard').style.display = 'none';
-        document.getElementById('setupScreen').style.display = 'flex';
-        refreshSavedJobsUI();
+        let job = jobsDatabase[activeJobId];
+        let reportData = {
+            station_name: STATION_NAMES[job.stationId],
+            batch_number: job.batchNumber,
+            batch_target: job.batchSize,
+            total_produced: job.lastSyncedTotal,
+            completed_pallets: parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0
+        };
+
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/save_report`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(reportData)
+            }).then(() => {
+                delete jobsDatabase[activeJobId];
+                saveDatabaseToStorage();
+                exitToJobList(); 
+            }).catch(e => alert("Network Error. Cannot save to Reports right now."));
+        }
     }
 
     function buildPalletVisuals() {
@@ -622,7 +618,6 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
-    // 🔥 LIVE UPDATE: ΟΥΤΕ ΓΡΑΦΗΜΑ, ΟΥΤΕ ΔΙΑΦΟΡΑ, ΟΥΤΕ PREV TOTAL 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -632,17 +627,13 @@
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
 
-        // Υπολογισμός τι προστέθηκε από την τελευταία φορά που στείλαμε (ώστε να το βάλουμε στον Κουμπαρά της Βάρδιας)
         let lastSynced = jobsDatabase[activeJobId].lastSyncedTotal || 0;
         let deltaTotal = currentTotalProducts - lastSynced;
 
-        // Ενημέρωση του Κουμπαρά Βάρδιας
         globalData.shiftTotal += deltaTotal;
 
-        // Ενημέρωση Παλετών στην Οθόνη
         updatePalletFills(currentTotalProducts); 
 
-        // Ενημέρωση UI (ΜΟΝΟ του New Total & του Shift)
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
         document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
         updateShiftGoalUI(globalData.shiftTotal);
@@ -653,12 +644,10 @@
         saveDatabaseToStorage();
         localStorage.setItem('station_global_db', JSON.stringify(globalData));
 
-        // Στέλνει τα δεδομένα στον Supervisor
         sendSyncToServer(false);
         addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
     }
 
-    // 🔥 HOURLY BOOKING: Ο ΔΙΚΟΣ ΣΟΥ ΚΩΔΙΚΑΣ (ΒΓΑΖΕΙ ΔΙΑΦΟΡΑ & ΕΝΗΜΕΡΩΝΕΙ ΓΡΑΦΗΜΑ) 🔥
     function calculateProduction() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -669,26 +658,20 @@
         if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
         let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
-        
-        // Η αυθεντική σου διαφορά ώρας!
         let hourlyDifference = currentTotalProducts - previousTotalProducts; 
 
-        // Υπολογισμός Delta για τη Βάρδια
         let lastSynced = jobsDatabase[activeJobId].lastSyncedTotal || 0;
         let deltaTotal = currentTotalProducts - lastSynced;
         globalData.shiftTotal += deltaTotal;
 
-        // 1. Ενημέρωση Παλετών
         updatePalletFills(currentTotalProducts); 
 
-        // 2. ΕΝΗΜΕΡΩΣΗ UI
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
         document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
         document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
         updateShiftGoalUI(globalData.shiftTotal);
 
-        // 3. ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ (Στον παγκόσμιο Κουμπαρά)
         globalData.hourCounter++; 
         globalData.chartLabels.push(`Hour ${globalData.hourCounter}`); 
         globalData.chartData.push(hourlyDifference); 
@@ -697,7 +680,6 @@
         let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; 
         addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
 
-        // 4. ΚΛΕΙΔΩΜΑ ΜΕΤΑΒΛΗΤΩΝ ΩΡΑΣ
         lastCalculatedBoxes = currentBoxes; 
         lastCalculatedLoose = looseProducts; 
         previousTotalProducts = currentTotalProducts;
@@ -708,7 +690,6 @@
         saveActiveJobState(); 
         localStorage.setItem('station_global_db', JSON.stringify(globalData));
 
-        // 5. Στέλνει τα δεδομένα στον Supervisor
         sendSyncToServer(false);
     }
 
@@ -730,7 +711,6 @@
                     triggerSupervisorMessage(sMsg);
                 }
 
-                // Εδώ μιλάει η φωνή ΟΤΑΝ ο Επόπτης πατήσει Acknowledge!
                 let serverAcked = data[stationId].alert_acknowledged;
                 if (serverAcked && data[stationId].worker_alert !== "") {
                     if (window.pendingAlertCall) {
@@ -743,7 +723,6 @@
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 ΤΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ, ΔΕΝ ΠΕΤΑΝΕ POPUPS. ΜΟΝΟ ΣΤΕΛΝΟΥΝ. 🔥
     function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
         window.pendingAlertCall = true; 
@@ -828,9 +807,11 @@
     function loadAvailableVoices() {
         if (!('speechSynthesis' in window)) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
         let voices = window.speechSynthesis.getVoices(); voiceSelector.innerHTML = "";
+        
         if (voices.length === 0) {
             hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
-            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)"; voiceSelector.appendChild(opt); return;
+            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)";
+            voiceSelector.appendChild(opt); return;
         }
         hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
         
@@ -868,10 +849,6 @@
         if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
         if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
         display1.textContent = formatTime(timer1Remaining, false); display2.textContent = formatTime(timer2Remaining, true); 
-        
-        let currentShift = getCurrentShift();
-        let topShiftLabel = document.getElementById('shiftDisplayTop');
-        if (topShiftLabel) topShiftLabel.textContent = currentShift;
     }
 
     function toggleTimers() {
