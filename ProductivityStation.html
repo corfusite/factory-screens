@@ -124,7 +124,7 @@
         <div style="width: 100%; max-width: 600px; margin-bottom: 10px; display: flex; gap: 15px;">
             <div style="flex: 1;">
                 <label style="color:#a6adc8; font-weight:bold;">Select Station:</label>
-                <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;">
+                <select id="setupStationId" style="background-color: #11111b; color: #a6e3a1; font-weight: bold;" onchange="updateLocalStationId()">
                     <option value="1">Line 1</option>
                     <option value="2">Line 2</option>
                     <option value="3">Line 3</option>
@@ -271,7 +271,6 @@
                     </div>
 
                     <div class="results-box">
-                        <!-- 🔥 ΕΔΩ ΠΡΟΣΤΕΘΗΚΑΝ ΤΑ PCS ΓΙΑ ΝΑ ΒΛΕΠΕΙ Ο ΕΡΓΑΤΗΣ ΠΑΝΤΑ ΤΟ ΣΥΝΟΛΟ ΠΡΟΪΟΝΤΩΝ 🔥 -->
                         <div class="result-row"><span>Target (Pallets | Boxes | Pcs):</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
                         <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
@@ -355,6 +354,10 @@
     const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
     const logList = document.getElementById('logList');
 
+    function updateLocalStationId() {
+        stationId = document.getElementById('setupStationId').value;
+    }
+
     function getCurrentShift() {
         let hour = new Date().getHours();
         if (hour >= 6 && hour < 14) return "Morning Shift";
@@ -423,6 +426,7 @@
         let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
 
         let stId = document.getElementById('setupStationId').value;
+        stationId = stId; 
         let sName = STATION_NAMES[stId] || "Unknown";
         let bNum = document.getElementById('setupBatchNumber').value || "No-Batch";
 
@@ -465,6 +469,8 @@
         let job = jobsDatabase[id];
 
         stationId = job.stationId || "1";
+        document.getElementById('setupStationId').value = stationId; 
+
         document.getElementById('activeStationDisplay').textContent = `${STATION_NAMES[stationId]} | ${getCurrentShift()}`;
         document.getElementById('specBatchNumber').textContent = job.batchNumber || "-";
 
@@ -504,7 +510,6 @@
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
-        // 🔥 ΕΜΦΑΝΙΣΗ ΑΚΡΙΒΟΥΣ ΑΡΙΘΜΟΥ ΠΡΟΪΟΝΤΩΝ ΜΑΖΙ ΜΕ ΠΑΛΕΤΕΣ ΚΑΙ ΚΟΥΤΙΑ 🔥
         document.getElementById('resTargetPallets').textContent = `${exactPallets} Plts | ${exactBoxes} Bxs | ${batchSize.toLocaleString()} Pcs`;
         
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
@@ -536,7 +541,6 @@
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
         
         sendSyncToServer(false);
-        pollSupervisorTarget();
     }
 
     function saveActiveJobState() {
@@ -586,7 +590,6 @@
         refreshSavedJobsUI();
     }
 
-    // 🔥 ΣΤΕΛΝΕΙ ΟΛΑ ΤΑ ΣΤΟΙΧΕΙΑ ΣΤΟ REPORTS HUB ΟΤΑΝ ΤΕΛΕΙΩΝΕΙ Η ΔΟΥΛΕΙΑ 🔥
     function finishJobAndReport() {
         if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub with all hourly details, and removed from your screen.")) return;
         
@@ -759,13 +762,39 @@
         sendSyncToServer(false);
     }
 
+    // 🔥 Ο ΠΑΓΚΟΣΜΙΟΣ ΕΛΕΓΧΟΣ: ΑΚΟΥΕΙ ΤΟΝ ΕΠΟΠΤΗ ΣΥΝΕΧΕΙΑ 🔥
     async function pollSupervisorTarget() {
-        if(!activeJobId || !stationId) return;
+        if(!stationId) return;
         try {
             const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
             const data = await res.json();
             
             if(data[stationId]) {
+                
+                // 1. ΕΛΕΓΧΟΣ ΓΙΑ KILL SWITCH (ΜΗΔΕΝΙΣΜΟΣ ΒΑΡΔΙΑΣ ΑΠΟ ΕΠΟΠΤΗ)
+                if (data[stationId].reset_flag === True || data[stationId].reset_flag === true) {
+                    globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
+                    localStorage.setItem('station_global_db', JSON.stringify(globalData));
+                    
+                    if(activeJobId) {
+                        document.getElementById('resShiftTotal').textContent = "0";
+                        updateShiftGoalUI(0);
+                        if (chartInstance) {
+                            chartInstance.data.labels = [];
+                            chartInstance.data.datasets[0].data = [];
+                            chartInstance.update();
+                        }
+                        addLogEntry("⚠️ Shift Data Reset remotely by Supervisor!", "check");
+                    }
+                    
+                    fetch(`${SERVER_URL}/api/ack_reset`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ station_id: stationId })
+                    }).catch(e => {});
+                }
+
+                if (!activeJobId) return; // Τα υπόλοιπα τρέχουν μόνο αν είμαστε μέσα σε δουλειά
+                
                 globalShiftTarget = data[stationId].shift_target || 0;
                 updateShiftGoalUI(globalData.shiftTotal);
                 
@@ -789,7 +818,10 @@
             }
         } catch(e) {}
     }
+    
+    // Ξεκινάει το polling αμέσως, ακόμα κι αν είμαστε στο αρχικό μενού
     setInterval(pollSupervisorTarget, 4000);
+    pollSupervisorTarget();
 
     function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
@@ -1000,7 +1032,6 @@
 
     refreshSavedJobsUI();
     loadRadioStations(); 
-    updateDisplays();
     
     if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } 
     else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
