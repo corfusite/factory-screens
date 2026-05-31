@@ -442,18 +442,18 @@
         document.getElementById('specLayersPerPallet').textContent = layersPerPallet;
         document.getElementById('specUnitsPerPallet').textContent = productsPerPallet.toLocaleString();
         
-        document.getElementById('currentBoxes').value = job.currentBoxesVal;
-        document.getElementById('currentLoose').value = job.currentLooseVal;
-
-        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets Total`;
-        document.getElementById('resPrevTotal').textContent = previousTotalProducts;
-        
         // Λήψη των τιμών από τα πεδία που είχαν σωθεί για να φτιάξει σωστά τις παλέτες στο Load
         let displayBoxes = job.currentBoxesVal !== "" ? parseInt(job.currentBoxesVal) : job.lastCalculatedBoxes;
         let displayLoose = job.currentLooseVal !== "" ? parseInt(job.currentLooseVal) : job.lastCalculatedLoose;
         if(isNaN(displayBoxes)) displayBoxes = 0;
         if(isNaN(displayLoose)) displayLoose = 0;
 
+        document.getElementById('currentBoxes').value = job.currentBoxesVal;
+        document.getElementById('currentLoose').value = job.currentLooseVal;
+
+        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets Total`;
+        document.getElementById('resPrevTotal').textContent = previousTotalProducts;
+        
         let initialCalculatedTotal = (displayBoxes * prodPerBox) + displayLoose;
         
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
@@ -478,6 +478,21 @@
         timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
         isRunning = false; updateDisplays(); 
         startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+        
+        // 🔥 ΑΥΤΟΜΑΤΟΣ ΜΗΔΕΝΙΣΜΟΣ / ΣΥΓΧΡΟΝΙΣΜΟΣ ΣΤΟΝ SUPERVISOR 🔥
+        setTimeout(() => {
+            let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
+            let currentLocalTotal = parseInt(document.getElementById('resShiftTotal').textContent) || 0;
+            let currentShiftBoxes = (displayBoxes || 0) - initialJobBoxesLock;
+            
+            if (SERVER_URL && SERVER_URL.includes("http")) {
+                fetch(`${SERVER_URL}/api/update_station`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ station_id: stationId, shift_boxes: currentShiftBoxes, shift_total: currentLocalTotal, completed_pallets: readyPallets })
+                }).catch(err => console.log("Silent sync delay"));
+            }
+        }, 500);
+
         pollSupervisorTarget();
     }
 
@@ -615,7 +630,6 @@
         if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
     }
 
-    // 🔥 ΝΕΑ ΛΕΙΤΟΥΡΓΙΑ: Live Update (Χωρίς Hourly Booking) 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -628,7 +642,6 @@
         let totalShiftProducts = currentTotalProducts - startingProducts;
         let totalShiftBoxes = currentBoxes - initialJobBoxesLock;
 
-        // Ενημερώνει ΜΟΝΟ τα Live UI Elements
         document.getElementById('resNewTotal').textContent = currentTotalProducts;
         document.getElementById('resShiftTotal').textContent = totalShiftProducts;
 
@@ -637,12 +650,10 @@
         
         let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
 
-        // Σώζει τις τιμές των Input για να μην χαθούν σε Refresh
         jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         saveDatabaseToStorage();
 
-        // Στέλνει τα δεδομένα στον Supervisor
         if (SERVER_URL && SERVER_URL.includes("http")) {
             fetch(`${SERVER_URL}/api/update_station`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -653,12 +664,13 @@
         addLogEntry(`> Live Sync: Data updated to Supervisor (${currentTotalProducts} pcs)`, 'sync');
     }
 
-    // Το παλιό καλό Calculate Production (για το Hourly Booking)
     function calculateProduction() {
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+
+        if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
         let newTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
         let difference = newTotalProducts - previousTotalProducts;
@@ -730,7 +742,6 @@
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 Στέλνει Κλήση (Alert) ΧΩΡΙΣ ALERT POPUPS! 🔥
     async function sendHelpAlert(type) {
         pendingAlertAck = true;
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
