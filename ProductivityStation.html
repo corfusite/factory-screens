@@ -46,11 +46,13 @@
 
         /* Pallets */
         .pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; }
+        .pallet-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; justify-items: center; }
         .pallet-wrapper { text-align: center; width: 70px; }
         .pallet-percentage { font-size: 0.9rem; font-weight: bold; color: #fab387; height: 15px; margin-bottom: 2px; font-family: monospace; }
         .pallet-icon { width: 50px; height: 45px; background-color: #313244; border: 3px solid #6c7086; border-radius: 6px; position: relative; margin: 0 auto; transition: all 0.3s; }
         .pallet-icon.full { background-color: #a6e3a1; border-color: #a6e3a1; box-shadow: 0 0 10px rgba(166, 227, 161, 0.4); }
         .pallet-icon::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: var(--fill-level, 0%); background-color: #a6e3a1; transition: height 0.3s; border-radius: 0 0 3px 3px; }
+        .pallet-label { font-size: 0.9rem; color: #a6adc8; margin-top: 4px; font-weight: bold; }
         
         /* Tables & Buttons */
         .specs-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 1rem; background-color: #11111b; border-radius: 8px; overflow: hidden; }
@@ -93,11 +95,12 @@
         .log-item.check { color: #fab387; }
         .log-item.sync { color: #89b4fa; }
 
+        /* INCOMING MESSAGE MODAL */
         .msg-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 9999; }
         .msg-modal-box { background: #f38ba8; color: #11111b; padding: 40px; border-radius: 20px; text-align: center; max-width: 800px; width: 90%; box-shadow: 0 0 50px rgba(243, 139, 168, 0.6); animation: pulse 0.5s infinite alternate;}
         .msg-modal-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; }
         .msg-modal-text { font-size: 1.8rem; font-weight: bold; margin-bottom: 30px; font-family: monospace; background: rgba(17,17,27,0.1); padding: 20px; border-radius: 10px;}
-        .msg-ack-btn { background: #11111b; color: #f38ba8; font-size: 2rem; padding: 20px 40px; width: 100%; border-radius: 15px; }
+        .msg-ack-btn { background: #11111b; color: #f38ba8; font-size: 2rem; padding: 20px 40px; width: 100%; border-radius: 15px; cursor: pointer; font-weight: bold;}
 
         @keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
     </style>
@@ -116,7 +119,7 @@
     <h1>Production Dashboard<span id="voiceIndicator" class="voice-indicator"></span></h1>
     
     <div id="setupScreen" class="setup-screen section-frame">
-        <h2 style="color: #fab387; margin: 0;">Job Management & Station Setup</h2>
+        <h2 style="color: #fab387; margin: 0;">Job Management Manager</h2>
         
         <div class="job-list-container">
             <div class="job-list-title">Saved Active Jobs List</div>
@@ -140,36 +143,25 @@
         </div>
 
         <div class="setup-grid">
-            <div class="field-group">
+            <div>
                 <label>Batch Size (Total Units)</label>
                 <input type="number" id="setupBatchSize" value="30000" min="0" onclick="this.select()">
             </div>
-            <div class="field-group">
+            <div>
                 <label>Products per Box</label>
                 <input type="number" id="setupProdPerBox" value="6" min="1" onclick="this.select()">
             </div>
-            <div class="field-group">
+            <div>
                 <label>Boxes per Layer</label>
                 <input type="number" id="setupBoxesPerLayer" value="72" min="1" onclick="this.select()">
             </div>
-            <div class="field-group">
+            <div>
                 <label>Layers per Pallet</label>
                 <input type="number" id="setupLayersPerPallet" value="12" min="1" onclick="this.select()">
             </div>
-            <div class="field-group" style="grid-column: span 2;">
+            <div style="grid-column: span 2;">
                 <label>Starting Products (Already Done)</label>
                 <input type="number" id="setupStartingProd" value="0" min="0" onclick="this.select()">
-            </div>
-            
-            <div class="field-group" style="grid-column: span 2;">
-                <label style="color:#fab387;">Custom Pallets (Pcs) & Position</label>
-                <div style="display: flex; gap: 10px;">
-                    <input type="text" id="setupCustomPallets" placeholder="e.g. 2000, 3000 (leave empty if standard)" onclick="this.select()" style="flex: 2; margin-bottom: 0;">
-                    <select id="setupCustomPos" style="flex: 1; margin-bottom: 0;">
-                        <option value="end">At End</option>
-                        <option value="start">At Start</option>
-                    </select>
-                </div>
             </div>
         </div>
         <button class="btn-main" style="max-width: 300px;" onclick="createNewJobConfiguration()">Start & Save New Job</button>
@@ -207,7 +199,9 @@
 
                 <div class="section-frame">
                     <div style="font-size: 1.1rem; font-weight: bold; color: #a6e3a1; margin-bottom: 10px;">Pallet Progress Monitor</div>
-                    <div class="pallet-container" id="palletGrid"></div>
+                    <div class="pallet-container">
+                        <div id="palletGrid" class="pallet-grid"></div>
+                    </div>
                 </div>
 
                 <div class="section-frame">
@@ -222,9 +216,10 @@
                             <tr><td>Boxes per Layer</td><td id="specBoxesPerLayer">-</td></tr>
                             <tr><td>Layers per Pallet</td><td id="specLayersPerPallet">-</td></tr>
                             <tr><td>Total Units per Pallet</td><td id="specUnitsPerPallet">-</td></tr>
+                            <tr><td>Initial Starting Products</td><td id="specStartingProd">-</td></tr>
                         </tbody>
                     </table>
-                    
+
                     <div class="call-container">
                         <button class="call-btn call-supervisor" onclick="sendHelpAlert('Supervisor')">Call Supervisor</button>
                         <button class="call-btn call-qa" onclick="sendHelpAlert('QA')">Call QA</button>
@@ -237,7 +232,7 @@
 
             <div class="right-column">
                 <div class="section-frame" style="border-color: #fab387;">
-                    <div style="display: flex; gap: 15px;">
+                    <div style="display: flex; gap: 15px; margin-bottom: 10px;">
                         <div style="flex: 1;">
                             <label style="font-weight: bold; color: #fab387;">Current Total Boxes</label>
                             <input type="number" id="currentBoxes" placeholder="Boxes..." min="0" onclick="this.select()" oninput="checkBoxesChange()">
@@ -254,10 +249,10 @@
                     </div>
 
                     <div class="results-box">
-                        <div class="result-row"><span>Target (Pallets / Boxes):</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
+                        <div class="result-row"><span>Target Job Pallets:</span><span id="resTargetPallets" style="font-weight: bold; color:#89b4fa;">0</span></div>
                         <div class="result-row"><span>Previous Total Products:</span><span id="resPrevTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row"><span>New Total Products:</span><span id="resNewTotal" style="font-family: monospace;">0</span></div>
-                        <div class="result-row shift-total"><span id="shiftLabelText">Accumulated Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
+                        <div class="result-row shift-total"><span>Accumulated Shift Products:</span><span id="resShiftTotal" style="font-family: monospace;">0</span></div>
                         <div class="result-row highlight"><span>HOURLY DIFFERENCE</span><span id="resDifference">0</span></div>
                     </div>
                 </div>
@@ -290,6 +285,7 @@
     </div>
 </div>
 
+<div id="hiddenPalletsCount" style="display:none;">0</div>
 <audio id="radioAudio" preload="none"></audio>
 
 <script>
@@ -307,7 +303,6 @@
     let stationId = "1";
     let globalShiftTarget = 0; 
     let localMessageRead = true; 
-    let pendingAlertAck = false; 
     let activeMessageInterval = null;
     let radioWasPlayingBeforeMsg = false;
 
@@ -319,7 +314,7 @@
     let timer1EndTime, timer2EndTime, isRunning = false, isAlarmActive = false;
     let countdownInterval, alarmInterval, alarmMessage = "", wasRadioPlayingBeforeAlarm = false;
 
-    let hasVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
+    let hasEnglishVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
     let chartInstance = null, hourlyLabels = [], hourlyData = [], hourCounter = 0, savedLogsArray = [];
 
     const display1 = document.getElementById('display1'), display2 = document.getElementById('display2');
@@ -335,31 +330,6 @@
         return "Night Shift";
     }
 
-    // 📡 Η νέα συνάρτηση που φροντίζει να είμαστε ο απόλυτος καθρέφτης του Επόπτη 📡
-    function sendSyncToServer(isOffline = false) {
-        if (!SERVER_URL || !SERVER_URL.includes("http")) return;
-        
-        if (isOffline || !activeJobId) {
-            fetch(`${SERVER_URL}/api/update_station`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ station_id: stationId, status: "Offline", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
-            }).catch(e => {});
-            return;
-        }
-
-        let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
-        let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
-        let currentTotalProducts = (curBoxes * prodPerBox) + looseProducts;
-        let totalShiftProducts = currentTotalProducts - startingProducts;
-        let totalShiftBoxes = curBoxes - initialJobBoxesLock;
-        let readyPallets = parseInt(document.getElementById('val_completed').textContent) || 0;
-
-        fetch(`${SERVER_URL}/api/update_station`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, status: "Online", shift_boxes: totalShiftBoxes, shift_total: totalShiftProducts, completed_pallets: readyPallets })
-        }).catch(e => {});
-    }
-
     function refreshSavedJobsUI() {
         const listDiv = document.getElementById('savedJobsList');
         let stored = localStorage.getItem('dashboard_production_jobs_db');
@@ -370,6 +340,7 @@
             listDiv.innerHTML = `<div style="color: #6c7086; font-style: italic; text-align: center; padding: 10px;">No saved jobs found. Create one below.</div>`;
             return;
         }
+
         listDiv.innerHTML = "";
         keys.forEach(id => {
             let job = jobsDatabase[id];
@@ -393,19 +364,12 @@
 
         let stId = document.getElementById('setupStationId').value;
         let sName = STATION_NAMES[stId] || "Unknown";
-        
+
         let bSz = Math.max(0, parseInt(document.getElementById('setupBatchSize').value) || 30000);
         let pBx = Math.max(1, parseInt(document.getElementById('setupProdPerBox').value) || 6);
         let bLy = Math.max(1, parseInt(document.getElementById('setupBoxesPerLayer').value) || 72);
         let lPl = Math.max(1, parseInt(document.getElementById('setupLayersPerPallet').value) || 12);
         let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
-
-        let customStr = document.getElementById('setupCustomPallets').value;
-        let customPos = document.getElementById('setupCustomPos').value; 
-        let customArr = [];
-        if (customStr.trim() !== "") {
-            customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
-        }
 
         let initialBoxes = sPr > 0 ? Math.floor(sPr / pBx) : 0;
         let initialLoose = sPr > 0 ? sPr % pBx : 0;
@@ -413,7 +377,6 @@
         jobsDatabase[id] = {
             id: id, createdTime: timestamp, stationId: stId,
             batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr,
-            customPallets: customArr, customPos: customPos, 
             previousTotalProducts: sPr, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose,
             currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose,
             initialJobBoxesLock: initialBoxes,
@@ -433,83 +396,77 @@
         stationId = job.stationId || "1";
         document.getElementById('activeStationDisplay').textContent = STATION_NAMES[stationId] || "Unknown";
 
-        batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer;
-        layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts;
-        previousTotalProducts = job.previousTotalProducts; lastCalculatedBoxes = job.lastCalculatedBoxes;
-        lastCalculatedLoose = job.lastCalculatedLoose; initialJobBoxesLock = job.initialJobBoxesLock || 0;
-        hourCounter = job.hourCounter; hourlyLabels = [...job.hourlyLabels];
-        hourlyData = [...job.hourlyData]; savedLogsArray = [...job.logs];
+        batchSize = job.batchSize;
+        prodPerBox = job.prodPerBox;
+        boxesPerLayer = job.boxesPerLayer;
+        layersPerPallet = job.layersPerPallet;
+        startingProducts = job.startingProducts;
+        previousTotalProducts = job.previousTotalProducts;
+        lastCalculatedBoxes = job.lastCalculatedBoxes;
+        lastCalculatedLoose = job.lastCalculatedLoose;
+        initialJobBoxesLock = job.initialJobBoxesLock || 0;
+        hourCounter = job.hourCounter;
+        hourlyLabels = [...job.hourlyLabels];
+        hourlyData = [...job.hourlyData];
+        savedLogsArray = [...job.logs];
 
         productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
-        
-        let customArr = job.customPallets || [];
-        let customPos = job.customPos || "end";
-        let sumCustom = customArr.reduce((a, b) => a + b, 0);
-        let standardPcs = Math.max(0, batchSize - sumCustom);
-        
-        let sequence = [];
-        while (standardPcs > 0) {
-            if (standardPcs >= productsPerPallet) { sequence.push(productsPerPallet); standardPcs -= productsPerPallet; } 
-            else { sequence.push(standardPcs); standardPcs = 0; }
-        }
-        
-        if (customPos === "start") job.palletSequence = customArr.concat(sequence);
-        else job.palletSequence = sequence.concat(customArr);
-        
-        let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
-        let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2);
-        let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
+        totalPalletsNeeded = Math.ceil(batchSize / productsPerPallet);
 
         document.getElementById('specBatchSize').textContent = batchSize.toLocaleString();
         document.getElementById('specProdPerBox').textContent = prodPerBox;
         document.getElementById('specBoxesPerLayer').textContent = boxesPerLayer;
         document.getElementById('specLayersPerPallet').textContent = layersPerPallet;
         document.getElementById('specUnitsPerPallet').textContent = productsPerPallet.toLocaleString();
-        
-        let displayBoxes = job.currentBoxesVal !== "" ? parseInt(job.currentBoxesVal) : job.lastCalculatedBoxes;
-        let displayLoose = job.currentLooseVal !== "" ? parseInt(job.currentLooseVal) : job.lastCalculatedLoose;
-        if(isNaN(displayBoxes)) displayBoxes = 0;
-        if(isNaN(displayLoose)) displayLoose = 0;
+        document.getElementById('specStartingProd').textContent = startingProducts.toLocaleString();
 
         document.getElementById('currentBoxes').value = job.currentBoxesVal;
         document.getElementById('currentLoose').value = job.currentLooseVal;
 
-        document.getElementById('resTargetPallets').textContent = `${exactPallets} Pallets | ${exactBoxes} Boxes`;
+        document.getElementById('resTargetPallets').textContent = `${totalPalletsNeeded} Pallets (${Math.ceil(batchSize/prodPerBox)} Boxes)`;
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
         
-        let initialCalculatedTotal = (displayBoxes * prodPerBox) + displayLoose;
-        let totalShiftProducts = initialCalculatedTotal - startingProducts;
-        
+        let initialCalculatedTotal = (job.lastCalculatedBoxes * prodPerBox) + job.lastCalculatedLoose;
         document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
+        
+        let shiftTotal = initialCalculatedTotal - startingProducts;
+        document.getElementById('resShiftTotal').textContent = shiftTotal;
         document.getElementById('resDifference').textContent = "0";
-        document.getElementById('resShiftTotal').textContent = totalShiftProducts;
 
         document.getElementById('setupScreen').style.display = 'none';
         document.getElementById('mainDashboard').style.display = 'block';
 
-        buildPalletVisuals(); initChart(); updatePalletFills(initialCalculatedTotal);
-        updateShiftGoalUI(totalShiftProducts);
+        buildPalletVisuals();
+        initChart();
+        updatePalletFills(initialCalculatedTotal);
+        updateShiftGoalUI(shiftTotal);
         
         logList.innerHTML = "";
         savedLogsArray.forEach(logItem => {
             let li = document.createElement('li');
-            if (typeof logItem === 'string') { li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`; } 
-            else { li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`; }
+            if (typeof logItem === 'string') {
+                li.className = "log-item";
+                li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`;
+            } else {
+                li.className = `log-item ${logItem.type}`;
+                li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`;
+            }
             logList.insertBefore(li, logList.firstChild);
         });
 
         timer1Remaining = job.timer1State !== undefined ? job.timer1State : TIME_30_MIN;
         timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
-        isRunning = false; updateDisplays(); 
-        startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+        isRunning = false;
         
-        // Μόλις φορτώσει, στέλνει την ΑΠΟΛΥΤΗ αλήθεια στον Supervisor
-        setTimeout(() => { sendSyncToServer(false); }, 500);
+        updateDisplays(); 
+        startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+
         pollSupervisorTarget();
     }
 
     function saveActiveJobState() {
         if (!activeJobId || !jobsDatabase[activeJobId]) return;
+
         let curB = document.getElementById('currentBoxes').value;
         let curL = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
 
@@ -529,31 +486,46 @@
             t1 = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
             t2 = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
         }
-        jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2;
+        jobsDatabase[activeJobId].timer1State = t1;
+        jobsDatabase[activeJobId].timer2State = t2;
+
         saveDatabaseToStorage();
     }
 
-    function saveDatabaseToStorage() { localStorage.setItem('dashboard_production_jobs_db', JSON.stringify(jobsDatabase)); }
+    function saveDatabaseToStorage() {
+        localStorage.setItem('dashboard_production_jobs_db', JSON.stringify(jobsDatabase));
+    }
 
     function deleteJobFromDatabase(id, event) {
         event.stopPropagation();
         if (confirm("Are you sure you want to delete this job permanently?")) {
-            if (activeJobId === id) {
-                exitToJobList(); 
-            }
-            delete jobsDatabase[id]; saveDatabaseToStorage(); refreshSavedJobsUI();
+            delete jobsDatabase[id];
+            saveDatabaseToStorage();
+            refreshSavedJobsUI();
         }
     }
 
     function exitToJobList() {
         if (isRunning) toggleTimers();
-        if (isAlarmActive) { isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; } }
         
-        saveActiveJobState(); 
+        if (isAlarmActive) {
+            isAlarmActive = false;
+            clearInterval(alarmInterval);
+            window.speechSynthesis.cancel();
+            dismissBtn.style.display = 'none';
+            if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
+        }
+        
+        saveActiveJobState();
         activeJobId = null;
-        
-        // Λέει στον Server ότι βγήκαμε! Μηδενίζει την οθόνη του Επόπτη!
-        sendSyncToServer(true);
+
+        // Στέλνουμε Offline status στον Supervisor
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, status: "Offline", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
+            }).catch(e => {});
+        }
 
         if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
         document.getElementById('mainDashboard').style.display = 'none';
@@ -563,65 +535,34 @@
 
     function buildPalletVisuals() {
         const grid = document.getElementById('palletGrid');
-        grid.style.display = 'flex'; grid.style.justifyContent = 'space-around'; grid.style.alignItems = 'center';
-        grid.innerHTML = `
-            <div class="pallet-wrapper" style="width: 120px; text-align: center;">
-                <div style="font-size:1rem; color:#a6e3a1; margin-bottom:8px; font-weight:bold;">COMPLETED</div>
-                <div style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #a6e3a1; border-radius:10px;"><span id="val_completed" style="color:#a6e3a1; font-weight:900; font-size:2.5rem;">0</span></div>
-            </div>
-            <div class="pallet-wrapper" style="width: 100px; text-align: center;">
-                <div class="pallet-percentage" id="pPct_active" style="font-size: 1.1rem; margin-bottom:5px;">0%</div>
-                <div class="pallet-icon" id="pIcon_active" style="width:60px; height:50px;"></div>
-                <div style="font-size:0.9rem; color:#fab387; margin-top:8px; font-weight:bold;">ACTIVE</div>
-            </div>
-            <div class="pallet-wrapper" style="width: 120px; text-align: center;">
-                <div style="font-size:1rem; color:#a6adc8; margin-bottom:8px; font-weight:bold;">REMAINING</div>
-                <div id="box_remaining" style="width:80px; height:65px; margin: 0 auto; display:flex; align-items:center; justify-content:center; background-color:#1e1e2e; border:3px solid #45475a; border-radius:10px; transition: all 0.3s;"><span id="val_remaining" style="color:#a6adc8; font-weight:900; font-size:2.2rem;">0</span></div>
-            </div>
-        `;
+        grid.innerHTML = "";
+        for (let i = 1; i <= totalPalletsNeeded; i++) {
+            let wrap = document.createElement('div'); wrap.className = 'pallet-wrapper';
+            wrap.innerHTML = `<div class="pallet-percentage" id="pPct_${i}"></div><div class="pallet-icon" id="pIcon_${i}"></div><div class="pallet-label">P${i}</div>`;
+            grid.appendChild(wrap);
+        }
     }
 
     function updatePalletFills(currentTotal) {
-        let valCompleted = document.getElementById('val_completed');
-        let valRemaining = document.getElementById('val_remaining');
-        let boxRemaining = document.getElementById('box_remaining');
-        let activeIcon = document.getElementById('pIcon_active');
-        let pctText = document.getElementById('pPct_active');
-        if (!valCompleted || !valRemaining || !activeIcon) return;
-
-        let job = jobsDatabase[activeJobId];
-        let seq = job.palletSequence || []; let totalPalletsTarget = seq.length;
-        let tempTotal = currentTotal; let completedPallets = 0; let activePalletSize = productsPerPallet; 
-        
-        for (let i = 0; i < seq.length; i++) {
-            if (tempTotal >= seq[i]) { completedPallets++; tempTotal -= seq[i]; } 
-            else { activePalletSize = seq[i]; break; }
+        let completedCount = 0;
+        for (let i = 1; i <= totalPalletsNeeded; i++) {
+            let icon = document.getElementById(`pIcon_${i}`); let pctText = document.getElementById(`pPct_${i}`);
+            if(!icon) continue;
+            let minRange = (i - 1) * productsPerPallet, maxRange = i * productsPerPallet;
+            if (currentTotal >= maxRange) {
+                icon.className = "pallet-icon full"; icon.style.setProperty('--fill-level', '100%');
+                pctText.textContent = "DONE"; pctText.style.color = "#a6e3a1";
+                completedCount++;
+            } else if (currentTotal > minRange && currentTotal < maxRange) {
+                icon.className = "pallet-icon"; let remainingInPallet = currentTotal - minRange;
+                let pct = Math.floor((remainingInPallet / productsPerPallet) * 100);
+                icon.style.setProperty('--fill-level', `${pct}%`); pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
+            } else {
+                icon.className = "pallet-icon"; icon.style.setProperty('--fill-level', '0%'); pctText.textContent = "";
+            }
         }
-
-        let inactivePallets = 0; let pct = 0;
-        if (currentTotal < batchSize) {
-            let remainingWholePallets = totalPalletsTarget - completedPallets - 1; 
-            if (remainingWholePallets < 0) remainingWholePallets = 0;
-            let activePalletRemainingFraction = (activePalletSize - tempTotal) / activePalletSize;
-            inactivePallets = remainingWholePallets + activePalletRemainingFraction;
-            pct = Math.floor((tempTotal / activePalletSize) * 100);
-        }
-
-        valCompleted.textContent = completedPallets;
-        
-        if (currentTotal >= batchSize) {
-            let extra = currentTotal - batchSize;
-            activeIcon.className = "pallet-icon full"; activeIcon.style.setProperty('--fill-level', '100%');
-            pctText.textContent = "100%"; pctText.style.color = "#a6e3a1";
-            boxRemaining.style.borderColor = "#a6e3a1"; valRemaining.style.color = "#a6e3a1";
-            if (extra > 0) { valRemaining.style.fontSize = "1.2rem"; valRemaining.innerHTML = `DONE<br><span style="font-size:0.9rem; color:#f9e2af;">+${extra} EXTRA</span>`; } 
-            else { valRemaining.style.fontSize = "1.8rem"; valRemaining.textContent = "DONE"; }
-        } else {
-            activeIcon.className = "pallet-icon"; activeIcon.style.setProperty('--fill-level', `${pct}%`);
-            pctText.textContent = `${pct}%`; pctText.style.color = "#fab387";
-            boxRemaining.style.borderColor = "#45475a"; valRemaining.style.color = "#a6adc8";
-            valRemaining.style.fontSize = "2.2rem"; valRemaining.textContent = Number(inactivePallets.toFixed(2));
-        }
+        // Αποθηκεύουμε τον αριθμό των έτοιμων παλετών κρυφά για να τον στείλουμε στον Supervisor
+        document.getElementById('hiddenPalletsCount').textContent = completedCount;
     }
 
     function updateShiftGoalUI(currentShiftProducts) {
@@ -648,10 +589,12 @@
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
-        if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0";
+        if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) {
+            document.getElementById('currentLoose').value = "0";
+        }
     }
 
-    // 🔥 LIVE UPDATE: ΔΕΝ ΑΓΓΙΖΕΙ TΟ HOURLY DIFFERENCE Η ΤΟ PREV TOTAL 🔥
+    // 🔥 LIVE UPDATE: ΕΝΗΜΕΡΩΝΕΙ ΜΟΝΟ ΤΙΣ ΕΝΔΕΙΞΕΙΣ (ΟΧΙ TO ΓΡΑΦΗΜΑ, ΟΧΙ ΤΗ ΔΙΑΦΟΡΑ) 🔥
     function updateLiveProgress() {
         if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
@@ -659,69 +602,94 @@
         
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
-        let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
-        let totalShiftProducts = currentTotalProducts - startingProducts;
 
-        // 1. Ενημέρωση Παλετών (Για να διαβαστεί το σωστό νούμερο μετά)
-        updatePalletFills(currentTotalProducts); 
+        let newTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
+        let totalShiftProducts = newTotalProducts - startingProducts;
 
-        // 2. Ενημέρωση UI (ΜΟΝΟ του New Total & Shift)
-        document.getElementById('resNewTotal').textContent = currentTotalProducts;
+        // Ενημερώνει μόνο τα συνολικά, ΟΧΙ το resDifference, ΟΧΙ το resPrevTotal
+        document.getElementById('resNewTotal').textContent = newTotalProducts;
         document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+
+        updatePalletFills(newTotalProducts);
         updateShiftGoalUI(totalShiftProducts);
 
         jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
         jobsDatabase[activeJobId].currentLooseVal = looseProducts;
         saveDatabaseToStorage();
 
-        // 3. Στέλνει τα δεδομένα στον Supervisor
-        sendSyncToServer(false);
-        addLogEntry(`> Live Sync: Display & Server updated to Supervisor`, 'sync');
+        // Στέλνουμε τα δεδομένα στον Supervisor
+        let shiftBoxes = currentBoxes - initialJobBoxesLock;
+        let readyPallets = parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0;
+
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    station_id: stationId, 
+                    shift_boxes: shiftBoxes, 
+                    shift_total: totalShiftProducts, 
+                    completed_pallets: readyPallets 
+                })
+            }).catch(e => console.log(e));
+        }
+
+        addLogEntry(`> Live Sync: Display updated to ${newTotalProducts} pcs`, 'sync');
     }
 
-    // 🔥 HOURLY BOOKING: ΕΝΗΜΕΡΩΝΕΙ ΓΡΑΦΗΜΑ & HOURLY DIFFERENCE & PREV TOTAL 🔥
+    // 🔥 HOURLY BOOKING: Ο ΠΑΛΙΟΣ ΑΥΘΕΝΤΙΚΟΣ ΚΩΔΙΚΑΣ ΣΟΥ - ΑΓΓΙΖΕΙ ΓΡΑΦΗΜΑ ΚΑΙ ΔΙΑΦΟΡΑ 🔥
     function calculateProduction() {
-        if (!activeJobId) return;
         let currentBoxesInput = document.getElementById('currentBoxes').value;
         if (currentBoxesInput === "") return;
+        
         let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0);
         let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
 
         if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && hourCounter > 0) return;
 
-        let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
-        let totalShiftProducts = currentTotalProducts - startingProducts;
-        let hourlyDifference = currentTotalProducts - previousTotalProducts; 
+        let newTotalProducts = (currentBoxes * prodPerBox) + looseProducts;
+        let difference = newTotalProducts - previousTotalProducts;
+        let totalShiftProducts = newTotalProducts - startingProducts;
 
-        // 1. Ενημέρωση Παλετών
-        updatePalletFills(currentTotalProducts); 
-
-        // 2. ΕΝΗΜΕΡΩΣΗ UI (ΚΑΙ Η ΔΙΑΦΟΡΑ ΤΗΣ ΩΡΑΣ)
         document.getElementById('resPrevTotal').textContent = previousTotalProducts;
-        document.getElementById('resNewTotal').textContent = currentTotalProducts;
-        document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
+        document.getElementById('resNewTotal').textContent = newTotalProducts;
         document.getElementById('resShiftTotal').textContent = totalShiftProducts;
+        document.getElementById('resDifference').textContent = difference >= 0 ? "+" + difference : difference;
+
+        updatePalletFills(newTotalProducts);
         updateShiftGoalUI(totalShiftProducts);
 
-        // 3. ΕΝΗΜΕΡΩΣΗ ΓΡΑΦΗΜΑΤΟΣ
-        hourCounter++; hourlyLabels.push(`Hour ${hourCounter}`); hourlyData.push(hourlyDifference); chartInstance.update();
+        hourCounter++;
+        hourlyLabels.push(`Hour ${hourCounter}`);
+        hourlyData.push(difference);
+        chartInstance.update();
 
-        let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; let shiftName = getCurrentShift();
-        addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
-
-        // 4. ΚΛΕΙΔΩΜΑ ΜΕΤΑΒΛΗΤΩΝ ΩΡΑΣ
-        lastCalculatedBoxes = currentBoxes; 
-        lastCalculatedLoose = looseProducts; 
-        previousTotalProducts = currentTotalProducts;
+        let diffStr = difference >= 0 ? "+" + difference : difference;
+        let shiftBoxes = currentBoxes - initialJobBoxesLock;
         
-        jobsDatabase[activeJobId].currentBoxesVal = currentBoxes;
-        jobsDatabase[activeJobId].currentLooseVal = looseProducts;
+        addLogEntry(`Prod Log -> Prev: ${previousTotalProducts} | New: ${newTotalProducts} | Diff: ${diffStr} | Shift Total: ${totalShiftProducts} (${shiftBoxes} Boxes)`, 'calc');
+
+        lastCalculatedBoxes = currentBoxes;
+        lastCalculatedLoose = looseProducts;
+        previousTotalProducts = newTotalProducts;
+
         saveActiveJobState(); 
 
-        // 5. Στέλνει τα δεδομένα στον Supervisor
-        sendSyncToServer(false);
+        // Στέλνουμε τα δεδομένα στον Supervisor
+        let readyPallets = parseInt(document.getElementById('hiddenPalletsCount').textContent) || 0;
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/update_station`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    station_id: stationId, 
+                    shift_boxes: shiftBoxes, 
+                    shift_total: totalShiftProducts, 
+                    completed_pallets: readyPallets 
+                })
+            }).catch(e => console.log(e));
+        }
     }
 
+    // 📡 ΕΠΙΚΟΙΝΩΝΙΑ ΜΕ ΣΕΡΒΕΡ (ΣΤΟΧΟΣ ΚΑΙ ΜΗΝΥΜΑΤΑ) 📡
     async function pollSupervisorTarget() {
         if(!activeJobId || !stationId) return;
         try {
@@ -740,28 +708,32 @@
                     triggerSupervisorMessage(sMsg);
                 }
 
+                // Εδώ μιλάει η φωνή ΟΤΑΝ ο Επόπτης πατήσει Acknowledge!
                 let serverAcked = data[stationId].alert_acknowledged;
-                
-                // ΔΙΟΡΘΩΣΗ ΚΛΗΣΕΩΝ: Μιλάει ΜΟΝΟ αν ο επόπτης πάτησε Acknowledge!
-                if (pendingAlertAck && serverAcked) {
-                    pendingAlertAck = false;
-                    playAckVoice(); 
+                if (serverAcked && data[stationId].worker_alert !== "") {
+                    // Χρειάζεται ένα flag για να μην μιλάει συνέχεια, θα το σβήσει ο supervisor
+                    // Μικρή προσαρμογή: θα μιλήσει μια φορά και θα σβήσει το τοπικό flag.
+                    if (window.pendingAlertCall) {
+                        window.pendingAlertCall = false;
+                        playAckVoice(); 
+                    }
                 }
             }
         } catch(e) {}
     }
     setInterval(pollSupervisorTarget, 4000);
 
-    // 🔥 ΔΙΟΡΘΩΜΕΝΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ! ΜΟΝΟ ΣΤΕΛΝΟΥΝ! 🔥
+    // 🔥 ΤΑ ΚΟΥΜΠΙΑ ΚΛΗΣΗΣ: ΔΕΝ ΜΙΛΑΝΕ, ΔΕΝ ΠΕΤΑΝΕ POPUPS. ΜΟΝΟ ΣΤΕΛΝΟΥΝ. 🔥
     function sendHelpAlert(type) {
         addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
-        
-        fetch(`${SERVER_URL}/api/send_alert`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, alert: type })
-        }).then(() => {
-            pendingAlertAck = true;
-        }).catch(error => { console.log("Network delay ignored."); });
+        window.pendingAlertCall = true; // Κρατάμε μνήμη ότι περιμένουμε απάντηση
+
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/send_alert`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId, alert: type })
+            }).catch(error => { console.log("Network delay ignored."); });
+        }
     }
 
     function triggerSupervisorMessage(msgText) {
@@ -773,7 +745,6 @@
         
         let ttsText = `Message from Supervisor. ${msgText}. Please check your screen.`;
         speakText(ttsText);
-        
         activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000);
     }
 
@@ -784,15 +755,16 @@
         
         localMessageRead = true;
         
-        fetch(`${SERVER_URL}/api/read_message`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId })
-        }).catch(e => {});
+        if (SERVER_URL && SERVER_URL.includes("http")) {
+            fetch(`${SERVER_URL}/api/read_message`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station_id: stationId })
+            }).catch(e => {});
+        }
 
         if (radioWasPlayingBeforeMsg) { startRadio(); radioWasPlayingBeforeMsg = false; }
     }
 
-    // Η φωνή που ακούγεται ΜΟΝΟ όταν ο Επόπτης απαντήσει στην κλήση
     function playAckVoice() {
         let wasRadio = !radioAudio.paused;
         stopRadio();
@@ -809,7 +781,7 @@
     }
 
     function speakText(text) {
-        if (!hasVoice) return;
+        if (!hasEnglishVoice) return;
         window.speechSynthesis.cancel();
         let ut = new SpeechSynthesisUtterance(text);
         let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
@@ -817,30 +789,37 @@
         window.speechSynthesis.speak(ut);
     }
 
-    async function loadRadioStations() {
+    function loadRadioStations() {
         const stationSelector = document.getElementById('stationSelector');
-        stationSelector.innerHTML = "<option value=''>Loading UK stations...</option>";
-        try {
-            const response = await fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true');
-            const stations = await response.json();
-            stationSelector.innerHTML = "<option value=''>-- Select UK Station --</option>";
-            stations.forEach(station => {
-                if (station.url_resolved && station.name.trim() !== "") {
-                    let opt = document.createElement('option'); opt.value = station.url_resolved; opt.textContent = station.name.trim();
-                    stationSelector.appendChild(opt);
-                }
+        stationSelector.innerHTML = "";
+        let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Loading UK stations...";
+        stationSelector.appendChild(opt);
+
+        fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true')
+            .then(res => res.json())
+            .then(stations => {
+                stationSelector.innerHTML = "<option value=''>-- Select UK Station --</option>";
+                stations.forEach(station => {
+                    if (station.url_resolved && station.name.trim() !== "") {
+                        let opt = document.createElement('option'); opt.value = station.url_resolved; opt.textContent = station.name.trim();
+                        stationSelector.appendChild(opt);
+                    }
+                });
+            }).catch(err => {
+                stationSelector.innerHTML = "<option value=''>Failed to load radio</option>";
             });
-        } catch (error) {}
     }
 
     function loadAvailableVoices() {
-        if (!('speechSynthesis' in window)) { hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
+        if (!('speechSynthesis' in window)) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
         let voices = window.speechSynthesis.getVoices(); voiceSelector.innerHTML = "";
+        
         if (voices.length === 0) {
-            hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
-            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)"; voiceSelector.appendChild(opt); return;
+            hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
+            let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)";
+            voiceSelector.appendChild(opt); return;
         }
-        hasVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
+        hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
         
         voices.forEach(v => {
             let opt = document.createElement('option'); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelector.appendChild(opt);
@@ -861,7 +840,10 @@
     }
 
     function toggleRadio() { if (!radioAudio.paused) { stopRadio(); } else { startRadio(); } }
-    function startRadio() { let url = stationSelector.value; if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; } }
+    function startRadio() {
+        let url = stationSelector.value;
+        if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; }
+    }
     function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
     function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
 
@@ -875,8 +857,9 @@
     function updateDisplays() { 
         if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
         if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
-        display1.textContent = formatTime(timer1Remaining, false); display2.textContent = formatTime(timer2Remaining, true); 
-        
+        display1.textContent = formatTime(timer1Remaining, false); 
+        display2.textContent = formatTime(timer2Remaining, true); 
+
         let currentShift = getCurrentShift();
         let topShiftLabel = document.getElementById('shiftDisplayTop');
         if (topShiftLabel) topShiftLabel.textContent = currentShift;
@@ -887,7 +870,8 @@
             isRunning = false; clearInterval(countdownInterval); let now = Date.now();
             if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
             if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
-            startPauseBtn.textContent = "Resume Timers"; startPauseBtn.classList.add('paused'); saveActiveJobState();
+            startPauseBtn.textContent = "Resume Timers"; startPauseBtn.classList.add('paused');
+            saveActiveJobState();
         } else {
             isRunning = true; let now = Date.now();
             if (isNaN(timer1Remaining) || timer1Remaining <= 0) timer1Remaining = TIME_30_MIN;
@@ -906,7 +890,8 @@
 
     function playDigitalBeep() {
         try {
-            let audioCtx = new (window.AudioContext || window.webkitAudioContext)(); let oscillator = audioCtx.createOscillator(); let gainNode = audioCtx.createGain();
+            let audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            let oscillator = audioCtx.createOscillator(); let gainNode = audioCtx.createGain();
             oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); oscillator.type = 'sine';
             oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
             oscillator.start(); gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3); oscillator.stop(audioCtx.currentTime + 0.3);
@@ -915,14 +900,14 @@
 
     function triggerAlertSound() {
         if (!isAlarmActive) return;
-        if (hasVoice && voiceSelector.value) {
+        if (hasEnglishVoice && voiceSelector.value) {
             speakText(alarmMessage);
         } else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); }
     }
 
     function buildAlarmMessage(t1, t2) {
-        if (t1 && t2) alarmMessage = "Please check product and log hourly production.";
-        else if (t1) alarmMessage = "Please check product."; else if (t2) alarmMessage = "Please log hourly production.";
+        if (t1 && t2) alarmMessage = "Please check product and log hourly production";
+        else if (t1) alarmMessage = "Please check product"; else if (t2) alarmMessage = "Please log hourly production";
     }
 
     function triggerAlarm(t1, t2) {
@@ -944,9 +929,13 @@
         if (t1Triggered) { timer1Remaining = TIME_30_MIN; timer1EndTime = now + (TIME_30_MIN * 1000); }
         if (t2Triggered) { timer2Remaining = TIME_1_HOUR; timer2EndTime = now + (TIME_1_HOUR * 1000); }
 
-        updateDisplays(); saveActiveJobState();
+        updateDisplays();
+        saveActiveJobState();
 
-        isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none';
+        isAlarmActive = false;
+        clearInterval(alarmInterval);
+        window.speechSynthesis.cancel();
+        dismissBtn.style.display = 'none';
         if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
     }
 
@@ -954,8 +943,12 @@
     loadRadioStations(); 
     updateDisplays();
     
-    if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } 
-    else { hasVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
+    if ('speechSynthesis' in window) {
+        loadAvailableVoices();
+        window.speechSynthesis.onvoiceschanged = loadAvailableVoices;
+    } else {
+        hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
+    }
 </script>
 </body>
 </html>
