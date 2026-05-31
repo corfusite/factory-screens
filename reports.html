@@ -14,22 +14,57 @@
         .btn-print:hover { background-color: #b4befe; }
         .btn-refresh { background-color: #fab387; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; }
 
-        .reports-container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 15px; }
-        .report-card { background-color: #1e1e2e; border: 2px solid #45475a; border-left: 8px solid #a6e3a1; border-radius: 10px; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .report-details { display: flex; flex-direction: column; gap: 8px; }
-        .report-title { font-size: 1.4rem; font-weight: bold; color: #f9e2af; }
-        .report-batch { font-family: monospace; font-size: 1.2rem; color: #b4befe; background: #313244; padding: 4px 8px; border-radius: 5px; display: inline-block; }
-        .report-stats { font-size: 1.1rem; color: #cdd6f4; }
-        .report-time { font-size: 0.9rem; color: #6c7086; font-style: italic; margin-top: 10px; }
+        .reports-container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 20px; }
+        .report-card { background-color: #1e1e2e; border: 2px solid #45475a; border-left: 8px solid #a6e3a1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px; transition: opacity 0.3s; }
+        
+        .report-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #313244; padding-bottom: 10px; }
+        .report-title-area { display: flex; align-items: center; gap: 15px; }
+        .report-checkbox { width: 25px; height: 25px; cursor: pointer; accent-color: #a6e3a1; }
+        .report-title { font-size: 1.6rem; font-weight: bold; color: #f9e2af; }
+        .report-batch { font-family: monospace; font-size: 1.3rem; color: #11111b; background: #b4befe; padding: 5px 10px; border-radius: 5px; font-weight: bold;}
+        .report-time { font-size: 1rem; color: #a6adc8; font-style: italic; }
+
+        .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .report-box { background-color: #313244; padding: 12px; border-radius: 8px; }
+        .report-box-title { color: #89b4fa; font-size: 0.9rem; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; }
+        .report-data { font-size: 1.2rem; font-family: monospace; }
+        .highlight-data { color: #a6e3a1; font-weight: bold; font-size: 1.4rem; }
+
+        .hourly-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px; margin-top: 10px; }
+        .hourly-item { background: #11111b; padding: 8px 12px; border-radius: 5px; font-family: monospace; font-size: 1.1rem; border: 1px solid #45475a; }
+        .hourly-item span { color: #a6adc8; }
+        .hourly-item strong { color: #fab387; }
+
+        .logs-box { max-height: 150px; overflow-y: auto; background: #11111b; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.9rem; margin-top: 10px; border: 1px solid #45475a;}
+        .log-line { margin-bottom: 4px; color: #cdd6f4; }
+        .log-stamp { color: #6c7086; margin-right: 8px; }
 
         /* 🔥 ΕΙΔΙΚΟ CSS ΓΙΑ ΤΗΝ ΕΚΤΥΠΩΣΗ (PDF) 🔥 */
         @media print {
             body { background-color: white; color: black; padding: 0; }
             .controls { display: none !important; }
             h1 { color: black; border-bottom: 2px solid black; padding-bottom: 10px; }
-            .report-card { border: 1px solid #ccc; border-left: 5px solid black; background-color: white; page-break-inside: avoid; margin-bottom: 10px; }
-            .report-title, .report-stats, .report-time { color: black; }
+            
+            /* Κρύβει τις κάρτες που ΔΕΝ είναι επιλεγμένες (δεν έχουν την κλάση .print-show) */
+            .print-hide { display: none !important; }
+            
+            .report-card { border: 1px solid #ccc; border-left: 5px solid black; background-color: white; page-break-inside: avoid; margin-bottom: 20px; box-shadow: none; }
+            .report-header { border-bottom: 2px solid #ccc; }
+            .report-checkbox { display: none; }
+            .report-title, .report-time { color: black; }
             .report-batch { background: #eee; color: black; border: 1px solid #999; }
+            
+            .report-box { background-color: #f9f9f9; border: 1px solid #ddd; }
+            .report-box-title { color: #555; }
+            .report-data, .highlight-data { color: black; }
+            
+            .hourly-item { background: #fff; color: black; border: 1px solid #ccc; }
+            .hourly-item span { color: #555; }
+            .hourly-item strong { color: black; }
+            
+            .logs-box { max-height: none; overflow: visible; background: transparent; border: 1px dashed #ccc; color: black; }
+            .log-line { color: black; }
+            .log-stamp { color: #555; }
         }
     </style>
 </head>
@@ -40,7 +75,7 @@
     <div class="controls">
         <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search by Batch Number or Order ID..." onkeyup="filterReports()">
         <button class="btn-refresh" onclick="fetchReports()">↻ Refresh</button>
-        <button class="btn-print" onclick="window.print()">🖨️ Print PDF Report</button>
+        <button class="btn-print" onclick="printSelectedReports()">🖨️ Print Selected</button>
     </div>
 
     <div class="reports-container" id="reportsList">
@@ -74,20 +109,62 @@
             return;
         }
 
-        reports.forEach(report => {
+        reports.forEach((report, index) => {
             let card = document.createElement('div');
             card.className = "report-card";
+            card.id = `report-card-${index}`;
+
+            let prodPerBox = report.prod_per_box || "-";
+            let boxesPerLayer = report.boxes_per_layer || "-";
+            let layersPerPallet = report.layers_per_pallet || "-";
+
+            let hourlyHtml = '';
+            if (report.hourly_labels && report.hourly_data && report.hourly_labels.length > 0) {
+                hourlyHtml = '<div class="report-box-title" style="margin-top:10px;">⏱️ Hourly Booking Breakdown</div><div class="hourly-grid">';
+                for(let i=0; i<report.hourly_labels.length; i++) {
+                    hourlyHtml += `<div class="hourly-item"><span>${report.hourly_labels[i]}:</span> <strong>+${report.hourly_data[i]} pcs</strong></div>`;
+                }
+                hourlyHtml += '</div>';
+            }
+
+            let logsHtml = '';
+            if (report.logs && report.logs.length > 0) {
+                logsHtml = '<div class="report-box-title" style="margin-top:10px;">📋 Activity Logs</div><div class="logs-box">';
+                report.logs.forEach(l => {
+                    if(typeof l === 'string') {
+                        logsHtml += `<div class="log-line"><span class="log-stamp">${l.substring(0,10)}</span>${l.substring(10)}</div>`;
+                    } else {
+                        logsHtml += `<div class="log-line"><span class="log-stamp">${l.stamp}</span>${l.text}</div>`;
+                    }
+                });
+                logsHtml += '</div>';
+            }
+
             card.innerHTML = `
-                <div class="report-details">
-                    <div class="report-title">${report.station_name}</div>
-                    <div><span class="report-batch">Batch / Order ID: ${report.batch_number}</span></div>
-                    <div class="report-stats">
-                        <strong>Target:</strong> ${report.batch_target} pcs &nbsp; | &nbsp; 
-                        <strong>Produced:</strong> <span style="color:#a6e3a1; font-weight:bold;">${report.total_produced} pcs</span> &nbsp; | &nbsp; 
-                        <strong>Pallets:</strong> ${report.completed_pallets}
+                <div class="report-header">
+                    <div class="report-title-area">
+                        <input type="checkbox" class="report-checkbox" id="cb-${index}">
+                        <div class="report-title">${report.station_name}</div>
+                        <div class="report-batch">Batch: ${report.batch_number}</div>
                     </div>
-                    <div class="report-time">Completed on: ${report.timestamp}</div>
+                    <div class="report-time">Saved on: ${report.timestamp}</div>
                 </div>
+                
+                <div class="report-grid">
+                    <div class="report-box">
+                        <div class="report-box-title">Job Configuration</div>
+                        <div class="report-data">Target: ${report.batch_target} pcs</div>
+                        <div class="report-data" style="font-size:1rem; color:#a6adc8;">Setup: ${prodPerBox} pcs/box | ${boxesPerLayer} boxes/layer | ${layersPerPallet} layers/pallet</div>
+                    </div>
+                    <div class="report-box">
+                        <div class="report-box-title">Final Production Result</div>
+                        <div class="report-data highlight-data">${report.total_produced} pcs</div>
+                        <div class="report-data">Total Ready Pallets: ${report.completed_pallets}</div>
+                    </div>
+                </div>
+                
+                ${hourlyHtml}
+                ${logsHtml}
             `;
             list.appendChild(card);
         });
@@ -99,7 +176,39 @@
         renderReports(filtered);
     }
 
-    // Φόρτωση αναφορών με το άνοιγμα της σελίδας
+    // Συνάρτηση που κρύβει όσα δεν είναι τσεκαρισμένα και εκτυπώνει!
+    function printSelectedReports() {
+        let cards = document.querySelectorAll('.report-card');
+        let anyChecked = false;
+        
+        cards.forEach((card, index) => {
+            let cb = document.getElementById(`cb-${index}`);
+            if (cb && cb.checked) {
+                card.classList.add('print-show');
+                card.classList.remove('print-hide');
+                anyChecked = true;
+            } else {
+                card.classList.add('print-hide');
+                card.classList.remove('print-show');
+            }
+        });
+
+        if (!anyChecked) {
+            alert("Please select at least one report using the checkboxes to print.");
+            // Επαναφορά
+            cards.forEach(card => card.classList.remove('print-hide'));
+            return;
+        }
+
+        window.print();
+
+        // Επαναφορά όλων μετά την εκτύπωση
+        cards.forEach(card => {
+            card.classList.remove('print-hide');
+            card.classList.remove('print-show');
+        });
+    }
+
     fetchReports();
 </script>
 </body>
