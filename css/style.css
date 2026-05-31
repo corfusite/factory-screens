@@ -1,0 +1,106 @@
+/* =========================================
+   ΚΕΝΤΡΙΚΟ ΑΡΧΕΙΟ ΕΜΦΑΝΙΣΗΣ (style.css)
+========================================= */
+
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 10px; box-sizing: border-box; }
+.container { background-color: #313244; padding: 20px 30px; border-radius: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.5); width: 98%; max-width: 1350px; box-sizing: border-box; position: relative;}
+h1 { margin: 0 0 15px 0; color: #89b4fa; font-size: 2.2rem; text-align: center; }
+.voice-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background-color: #f9e2af; vertical-align: super; margin-left: 10px; }
+
+/* Οθόνη Setup */
+.setup-screen { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px; }
+.setup-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; width: 100%; max-width: 600px; }
+.setup-grid div.field-group { display: flex; flex-direction: column; }
+.setup-grid label { font-size: 1rem; margin-bottom: 5px; color: #a6adc8; font-weight: 600; }
+
+/* Λίστα Δουλειών */
+.job-list-container { width: 100%; max-width: 600px; background-color: #11111b; border-radius: 12px; padding: 15px; box-sizing: border-box; }
+.job-list-title { font-size: 1.2rem; font-weight: bold; color: #89b4fa; margin-bottom: 10px; border-bottom: 1px solid #45475a; padding-bottom: 5px; }
+.job-item-row { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-bottom: 1px solid #313244; gap: 10px; }
+.job-item-row:last-child { border-bottom: none; }
+.job-info-text { font-size: 1rem; color: #cdd6f4; cursor: pointer; flex: 1; }
+.job-info-text:hover { color: #a6e3a1; font-weight: bold; }
+
+/* Κεντρικό Dashboard */
+.main-dashboard { display: none; }
+.main-grid { display: flex; gap: 20px; align-items: flex-start; }
+.left-column { flex: 1.2; display: flex; flex-direction: column; gap: 15px; }
+.right-column { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+.section-frame { background-color: #1e1e2e; padding: 18px; border-radius: 12px; border: 2px solid #45475a; box-sizing: border-box; }
+
+/* Χρονόμετρα */
+.timers-row { display: flex; gap: 15px; }
+.timer-box { flex: 1; background-color: #45475a; padding: 12px; border-radius: 10px; border-left: 8px solid #a6adc8; text-align: center; }
+.timer-box.secondary { border-left-color: #fab387; }
+.timer-label { font-size: 1.2rem; color: #a6adc8; font-weight: 600; }
+.timer-display { font-size: 3.2rem; font-weight: bold; font-family: monospace; color: #fff; }
+
+/* Shift Goal (Κουμπαράς Βάρδιας) */
+.shift-goal-container { margin-top: 5px; padding: 15px; background: #11111b; border-radius: 10px; border: 1px dashed #89b4fa; }
+.shift-goal-title { display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 8px; }
+.shift-goal-track { background: #313244; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
+.shift-goal-fill { background: #89b4fa; height: 100%; width: 0%; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; box-sizing: border-box; color:#11111b; font-weight:bold; font-size:0.8rem;}
+
+/* Παλέτες (Tα 3 Κουτιά) */
+.pallet-container { background-color: #11111b; padding: 15px; border-radius: 10px; min-height: 140px; display: flex; justify-content: space-around; align-items: center;}
+.pallet-wrapper { text-align: center; width: 120px; }
+.pallet-percentage { font-size: 1.1rem; font-weight: bold; color: #fab387; margin-bottom: 5px; font-family: monospace; }
+.pallet-icon { width: 60px; height: 50px; background-color: #313244; border: 3px solid #6c7086; border-radius: 6px; position: relative; margin: 0 auto; transition: all 0.3s; }
+.pallet-icon.full { background-color: #a6e3a1; border-color: #a6e3a1; box-shadow: 0 0 10px rgba(166, 227, 161, 0.4); }
+.pallet-icon::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: var(--fill-level, 0%); background-color: #a6e3a1; transition: height 0.3s; border-radius: 0 0 3px 3px; }
+
+/* Πίνακας Προδιαγραφών */
+.specs-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 1rem; background-color: #11111b; border-radius: 8px; overflow: hidden; }
+.specs-table th, .specs-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #313244; }
+.specs-table th { background-color: #313244; color: #89b4fa; font-weight: bold; }
+.specs-table td { color: #cdd6f4; font-family: monospace; font-size: 1.1rem; }
+
+/* Κουμπιά */
+button { padding: 12px 20px; font-size: 1.3rem; font-weight: bold; border: none; border-radius: 10px; cursor: pointer; transition: background 0.2s; }
+.btn-main { background-color: #a6e3a1; color: #11111b; width: 100%; }
+.btn-main.paused { background-color: #f9e2af; }
+.btn-alarm { background-color: #f38ba8; color: #11111b; width: 100%; display: none; font-size: 1.5rem; padding: 15px; margin-top: 10px; animation: pulse 0.5s infinite alternate; box-shadow: 0 0 20px #f38ba8; }
+.btn-danger { background-color: #f38ba8; color: #11111b; padding: 6px 12px; font-size: 0.9rem; border-radius: 6px; }
+.btn-secondary { background-color: #585b70; color: #cdd6f4; width: 100%; font-size: 1.1rem; margin-top: 10px; }
+
+/* Κουμπιά Κλήσεων */
+.call-container { display: flex; gap: 10px; margin-top: 15px; }
+.call-btn { flex: 1; padding: 12px; font-size: 1rem; font-weight: bold; border-radius: 8px; cursor: pointer; color: #11111b; border: none; }
+.call-supervisor { background-color: #f38ba8; }
+.call-qa { background-color: #fab387; }
+.call-eng { background-color: #89b4fa; }
+
+/* Φόρμες (Inputs/Selects) */
+select, input { width: 100%; padding: 10px; background-color: #313244; border: 2px solid #45475a; border-radius: 8px; color: #cdd6f4; font-size: 1.2rem; box-sizing: border-box; margin-bottom: 10px; }
+
+/* Κουτί Αποτελεσμάτων (Live/Hourly) */
+.results-box { background-color: #313244; padding: 12px; border-radius: 8px; margin-top: 10px; border: 2px dashed #45475a; }
+.result-row { display: flex; justify-content: space-between; font-size: 1.2rem; margin-bottom: 6px; }
+.result-row.shift-total { color: #b4befe; font-weight: bold; border-top: 1px dashed #45475a; padding-top: 6px; }
+.result-row.highlight { flex-direction: column; align-items: center; border-top: 2px solid #45475a; padding-top: 8px; margin-top: 10px; font-weight: bold; }
+.result-row.highlight span:last-child { font-size: 3rem; color: #a6e3a1; font-family: monospace; font-weight: 900; }
+
+/* Ραδιόφωνο / Φωνή */
+.bottom-controls { display: flex; gap: 15px; margin-top: 15px; }
+.bottom-controls .section-frame { flex: 1; padding: 12px 20px; }
+.radio-container { display: flex; align-items: center; gap: 10px; }
+.radio-container select { margin-bottom: 0; flex: 1; height: 42px; }
+.radio-container button { height: 42px; padding: 0 20px; font-size: 1.1rem; }
+
+/* Logs (Ιστορικό) */
+.log-container { margin-top: 15px; background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 12px; padding: 15px; max-height: 180px; overflow-y: auto; }
+.log-title { font-size: 1.1rem; font-weight: bold; color: #89b4fa; margin-bottom: 5px; border-bottom: 1px solid #45475a; }
+.log-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 1.1rem; }
+.log-item { padding: 4px 5px; border-bottom: 1px solid #313244; display: flex; gap: 10px; }
+.log-item.calc { color: #a6e3a1; }
+.log-item.check { color: #fab387; }
+.log-item.sync { color: #89b4fa; }
+
+/* Pop-up Μήνυμα Επόπτη */
+.msg-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); display: none; justify-content: center; align-items: center; z-index: 9999; }
+.msg-modal-box { background: #f38ba8; color: #11111b; padding: 40px; border-radius: 20px; text-align: center; max-width: 800px; width: 90%; box-shadow: 0 0 50px rgba(243, 139, 168, 0.6); animation: pulse 0.5s infinite alternate;}
+.msg-modal-title { font-size: 2.5rem; font-weight: 900; margin-bottom: 10px; }
+.msg-modal-text { font-size: 1.8rem; font-weight: bold; margin-bottom: 30px; font-family: monospace; background: rgba(17,17,27,0.1); padding: 20px; border-radius: 10px;}
+.msg-ack-btn { background: #11111b; color: #f38ba8; font-size: 2rem; padding: 20px 40px; width: 100%; border-radius: 15px; cursor: pointer; font-weight: bold;}
+
+@keyframes pulse { 0% { transform: scale(1); } 100% { transform: scale(1.02); } }
