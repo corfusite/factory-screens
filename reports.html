@@ -13,6 +13,8 @@
         .btn-print { background-color: #89b4fa; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
         .btn-print:hover { background-color: #b4befe; }
         .btn-refresh { background-color: #fab387; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; }
+        .btn-delete { background-color: #f38ba8; color: #11111b; font-size: 1.2rem; font-weight: bold; border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        .btn-delete:hover { background-color: #eba0ac; }
 
         .reports-container { width: 100%; max-width: 1000px; display: flex; flex-direction: column; gap: 20px; }
         .report-card { background-color: #1e1e2e; border: 2px solid #45475a; border-left: 8px solid #a6e3a1; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 15px; transition: opacity 0.3s; }
@@ -76,6 +78,7 @@
         <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search by Batch Number or Order ID..." onkeyup="filterReports()">
         <button class="btn-refresh" onclick="fetchReports()">↻ Refresh</button>
         <button class="btn-print" onclick="printSelectedReports()">🖨️ Print Selected</button>
+        <button class="btn-delete" onclick="deleteSelectedReports()">🗑️ Delete Selected</button>
     </div>
 
     <div class="reports-container" id="reportsList">
@@ -140,10 +143,11 @@
                 logsHtml += '</div>';
             }
 
+            // Προσοχή στο data-id του checkbox, εκεί κρατάμε το κρυφό ID του Firebase
             card.innerHTML = `
                 <div class="report-header">
                     <div class="report-title-area">
-                        <input type="checkbox" class="report-checkbox" id="cb-${index}">
+                        <input type="checkbox" class="report-checkbox" id="cb-${index}" data-id="${report.firebase_id}">
                         <div class="report-title">${report.station_name}</div>
                         <div class="report-batch">Batch: ${report.batch_number}</div>
                     </div>
@@ -176,7 +180,6 @@
         renderReports(filtered);
     }
 
-    // Συνάρτηση που κρύβει όσα δεν είναι τσεκαρισμένα και εκτυπώνει!
     function printSelectedReports() {
         let cards = document.querySelectorAll('.report-card');
         let anyChecked = false;
@@ -195,18 +198,55 @@
 
         if (!anyChecked) {
             alert("Please select at least one report using the checkboxes to print.");
-            // Επαναφορά
             cards.forEach(card => card.classList.remove('print-hide'));
             return;
         }
 
         window.print();
 
-        // Επαναφορά όλων μετά την εκτύπωση
         cards.forEach(card => {
             card.classList.remove('print-hide');
             card.classList.remove('print-show');
         });
+    }
+
+    // 🔥 Η ΣΥΝΑΡΤΗΣΗ ΠΟΥ ΔΙΑΓΡΑΦΕΙ ΑΠΟ ΤΟ FIREBASE 🔥
+    async function deleteSelectedReports() {
+        let checkboxes = document.querySelectorAll('.report-checkbox:checked');
+        
+        if (checkboxes.length === 0) {
+            alert("Please select at least one report to delete.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to permanently delete ${checkboxes.length} report(s)?\nThis action cannot be undone.`)) {
+            return;
+        }
+
+        document.getElementById('reportsList').innerHTML = "<div style='text-align: center; color: #f38ba8;'>Deleting reports... Please wait.</div>";
+
+        // Μαζεύουμε όλα τα IDs και στέλνουμε εντολή DELETE για το καθένα
+        let deletePromises = [];
+        checkboxes.forEach(cb => {
+            let firebaseId = cb.getAttribute('data-id');
+            if (firebaseId) {
+                let p = fetch(`${SERVER_URL}/api/delete_report`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firebase_id: firebaseId })
+                });
+                deletePromises.push(p);
+            }
+        });
+
+        // Περιμένουμε να διαγραφούν όλα και μετά ξαναφορτώνουμε τη λίστα
+        try {
+            await Promise.all(deletePromises);
+            fetchReports();
+        } catch (e) {
+            alert("An error occurred while deleting some reports.");
+            fetchReports();
+        }
     }
 
     fetchReports();
