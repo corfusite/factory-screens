@@ -43,7 +43,6 @@
         .mini-progress-fill { background-color: #89b4fa; height: 100%; width: 0%; transition: width 0.3s; }
         .mini-pct { position: absolute; right: 5px; top: -2px; font-size: 0.7rem; color: #fff; font-weight: bold; }
 
-        /* SHIFT HISTORY SECTION */
         .history-container { background-color: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; padding: 20px; width: 100%; max-width: 1200px; margin-top: 30px; box-sizing: border-box; }
         .btn-end-shift { background-color: #f38ba8; color: #11111b; font-weight: bold; border: none; padding: 10px 20px; border-radius: 8px; font-size: 1.1rem; cursor: pointer; transition: background 0.3s; }
         .btn-end-shift:hover { background-color: #eba0ac; }
@@ -73,7 +72,7 @@
     <div class="history-container">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <h2 style="color: #f9e2af; margin:0;">Shift History & Management</h2>
-            <button class="btn-end-shift" onclick="endCurrentShift()">End & Save Current Shift</button>
+            <button class="btn-end-shift" onclick="endCurrentShift()">Start New Shift (Reset All Data & Targets)</button>
         </div>
         <div id="shiftHistoryList"></div>
     </div>
@@ -194,20 +193,21 @@
     }
 
     function endCurrentShift() {
-        if(!confirm("Are you sure you want to end and save the current shift?\n\nThis will reset all station progress to 0, but the Targets will remain intact.")) return;
+        if(!confirm("Are you sure you want to SAVE and START A NEW SHIFT?\n\nThis will completely WIPE all Production Data AND Targets from the Server!")) return;
         
         let now = new Date();
         let stamp = now.toLocaleDateString() + " " + now.toLocaleTimeString();
-        
         let totalP = document.getElementById('global-current').textContent;
         let totalT = document.getElementById('global-target').textContent;
         
         let shiftRecord = { id: Date.now(), date: stamp, produced: totalP, target: totalT };
-        
-        shiftHistoryDB.unshift(shiftRecord); // Add to top
+        shiftHistoryDB.unshift(shiftRecord);
         localStorage.setItem('supervisor_shifts_db', JSON.stringify(shiftHistoryDB));
         
-        // Reset the Server Shift Accumulators
+        // Διαγράφει τη μνήμη των Target από τον Supervisor ώστε να μην τα ξαναστείλει
+        localTargetsDB = {};
+        localStorage.removeItem('supervisor_targets_db');
+        
         fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' }).then(() => {
             fetchServerData();
             renderShiftHistory();
