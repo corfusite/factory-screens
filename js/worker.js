@@ -51,21 +51,32 @@ function getCurrentShift() {
     return "Night Shift";
 }
 
+// 🔥 ΑΛΛΑΓΗ ΣΤΟΝ ΣΥΓΧΡΟΝΙΣΜΟ (ΔΙΠΛΑ ΔΕΔΟΜΕΝΑ ΓΙΑ ΤΟΝ ΕΠΟΠΤΗ) 🔥
 function sendSyncToServer(isOffline = false) {
     if (!SERVER_URL || !SERVER_URL.includes("http")) return;
     
+    let hpElement = document.getElementById('hiddenPalletsCount');
+    let currentJobPallets = hpElement ? parseInt(hpElement.textContent) || 0 : 0;
+    let totalShiftPallets = (globalData.shiftPallets || 0) + currentJobPallets; 
+    
+    let bNum = (activeJobId && jobsDatabase[activeJobId]) ? jobsDatabase[activeJobId].batchNumber : "-";
+    let currentJobTotal = (activeJobId && jobsDatabase[activeJobId]) ? (jobsDatabase[activeJobId].lastSyncedTotal || 0) : 0;
+
     if (isOffline || !activeJobId) {
         fetch(`${SERVER_URL}/api/update_station`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, status: "Offline", batch_number: "-", shift_boxes: 0, shift_total: 0, completed_pallets: 0 })
+            body: JSON.stringify({ 
+                station_id: stationId, 
+                status: "Offline", 
+                batch_number: bNum, 
+                job_total: 0, 
+                job_pallets: 0, 
+                shift_total: globalData.shiftTotal, 
+                shift_pallets: totalShiftPallets 
+            })
         }).catch(e => {});
         return;
     }
-
-    let hpElement = document.getElementById('hiddenPalletsCount');
-    let readyPallets = hpElement ? parseInt(hpElement.textContent) || 0 : 0;
-    let curBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
-    let bNum = jobsDatabase[activeJobId].batchNumber || "N/A";
 
     fetch(`${SERVER_URL}/api/update_station`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -73,9 +84,10 @@ function sendSyncToServer(isOffline = false) {
             station_id: stationId, 
             status: "Online", 
             batch_number: bNum,
-            shift_boxes: curBoxes, 
+            job_total: currentJobTotal,
+            job_pallets: currentJobPallets,
             shift_total: globalData.shiftTotal, 
-            completed_pallets: readyPallets 
+            shift_pallets: totalShiftPallets 
         })
     }).catch(e => {});
 }
