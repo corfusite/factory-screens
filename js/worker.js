@@ -215,6 +215,34 @@ async function createNewJobConfiguration() {
     loadSelectedJob(id);
 }
 
+// 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ ΠΟΣΟΣΤΟ ΠΡΟΟΔΟΥ ΤΗΣ ΔΟΥΛΕΙΑΣ 🔥
+function updateJobProgressUI(currentTotalProducts) {
+    if (!batchSize || batchSize <= 0) return;
+
+    let percentage = (currentTotalProducts / batchSize) * 100;
+    let difference = currentTotalProducts - batchSize;
+
+    let pctEl = document.getElementById('ui-progress-pct');
+    let diffEl = document.getElementById('ui-progress-diff');
+
+    if (!pctEl || !diffEl) return;
+
+    // Εμφάνιση Ποσοστού (με 1 δεκαδικό ψηφίο)
+    pctEl.textContent = percentage.toFixed(1) + "%";
+
+    // Λογική Χρωμάτων (Κόκκινο = Μείον / Πράσινο = Συν)
+    if (difference < 0) {
+        diffEl.textContent = difference; // π.χ. -500
+        diffEl.style.color = "#f38ba8";  // Κόκκινο
+        pctEl.style.color = "#f38ba8";
+    } else {
+        diffEl.textContent = "+" + difference; // π.χ. +50
+        diffEl.style.color = "#a6e3a1";  // Πράσινο
+        pctEl.style.color = "#a6e3a1";
+    }
+}
+// --------------------------------------------------------
+
 function loadSelectedJob(id) {
     activeJobId = id;
     let job = jobsDatabase[id];
@@ -271,6 +299,9 @@ function loadSelectedJob(id) {
     document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
     document.getElementById('resDifference').textContent = "0";
     document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
+
+    // 🔥 Ενημέρωση του Ποσοστού Προόδου κατά τη φόρτωση
+    updateJobProgressUI(initialCalculatedTotal);
 
     document.getElementById('setupScreen').style.display = 'none';
     document.getElementById('mainDashboard').style.display = 'block';
@@ -468,6 +499,9 @@ function updateLiveProgress() {
     globalData.shiftTotal += deltaTotal;
 
     updatePalletFills(currentTotalProducts); 
+    
+    // 🔥 Ενημέρωση Ποσοστού εδώ 🔥
+    updateJobProgressUI(currentTotalProducts);
 
     document.getElementById('resNewTotal').textContent = currentTotalProducts;
     document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
@@ -502,6 +536,9 @@ function calculateProduction() {
     globalData.shiftTotal += deltaTotal;
 
     updatePalletFills(currentTotalProducts); 
+    
+    // 🔥 Ενημέρωση Ποσοστού εδώ 🔥
+    updateJobProgressUI(currentTotalProducts);
 
     document.getElementById('resPrevTotal').textContent = previousTotalProducts;
     document.getElementById('resNewTotal').textContent = currentTotalProducts;
