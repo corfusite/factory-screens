@@ -96,7 +96,12 @@
         .chat-window.minimized { height: 45px; } 
         
         .chat-top-bar { display: flex; justify-content: space-between; align-items: center; background: #11111b; padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #45475a;}
-        .chat-top-title { color: #89b4fa; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+        .chat-top-title { color: #89b4fa; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; flex: 1; }
+        
+        /* ΝΕΑ ΚΟΥΜΠΙΑ ΔΙΑΓΡΑΦΗΣ ΚΑΙ ΕΛΑΧΙΣΤΟΠΟΙΗΣΗΣ */
+        .chat-action-btns { display: flex; gap: 15px; align-items: center; }
+        .chat-clear-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0; filter: grayscale(100%); transition: 0.2s; }
+        .chat-clear-btn:hover { filter: grayscale(0%); transform: scale(1.1); }
         .chat-min-btn { background: none; border: none; color: #cdd6f4; font-weight: bold; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; margin-top: -8px; }
         
         .chat-tabs { display: flex; background: #313244; }
@@ -130,8 +135,7 @@
     </div>
 
     <div class="section-title">▶ Current Active Jobs (Live Feed)</div>
-    <div class="grid-container" id="stationsGrid">
-        </div>
+    <div class="grid-container" id="stationsGrid"></div>
 
     <div class="section-title">📊 Total Shift Performance (All Jobs)</div>
     <div class="table-container">
@@ -146,21 +150,17 @@
                     <th>Goal Progress</th>
                 </tr>
             </thead>
-            <tbody id="shiftTableBody">
-                </tbody>
+            <tbody id="shiftTableBody"></tbody>
         </table>
-    </div>
-
-    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
-        <button onclick="window.open('reports.html', '_blank')" style="background-color: #cba6f7; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(203, 166, 247, 0.4); transition: 0.2s;">
-            📂 Open Production Reports & History Hub
-        </button>
     </div>
 
     <div class="chat-window minimized" id="chatWindow">
         <div class="chat-top-bar" onclick="toggleChat()">
             <div class="chat-top-title">💬 Live Field Updates</div>
-            <button class="chat-min-btn">_</button>
+            <div class="chat-action-btns">
+                <button class="chat-clear-btn" onclick="clearActiveChat(event)" title="Clear Chat History">🗑️</button>
+                <button class="chat-min-btn" onclick="toggleChat()">_</button>
+            </div>
         </div>
         <div class="chat-tabs">
             <button class="tab-btn active" id="btn-QA" onclick="switchTab('QA', event)">QA</button>
@@ -294,12 +294,27 @@
         chatWin.classList.toggle('minimized');
     }
 
+    function clearActiveChat(event) {
+        event.stopPropagation(); // Σταματάει το κλικ να ελαχιστοποιεί το παράθυρο
+        if(confirm(`Are you sure you want to clear all messages in ${activeChatTab}?`)) {
+            fetch(`${SERVER_URL}/api/clear_chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tab: activeChatTab })
+            }).then(() => {
+                chatData[activeChatTab] = [];
+                msgCounts[activeChatTab] = 0;
+                renderChat();
+            });
+        }
+    }
+
     function switchTab(tabName, event) {
         if (event) event.stopPropagation();
         activeChatTab = tabName;
         
         let btn = document.getElementById(`btn-${tabName}`);
-        btn.className = 'tab-btn active'; // Βγάζει το new-msg class
+        btn.className = 'tab-btn active';
         
         let otherBtn = document.getElementById(tabName === 'QA' ? 'btn-ENG' : 'btn-QA');
         if (!otherBtn.classList.contains('new-msg')) {
@@ -316,7 +331,7 @@
             box.innerHTML = `<div style="text-align:center; color:#6c7086; margin-top: 20px;"><i>No updates yet...</i></div>`;
         } else {
             box.innerHTML = msgs.map(m => `<div class="chat-msg">${m}</div>`).join('');
-            box.scrollTop = box.scrollHeight; // Σκρολάρει αυτόματα κάτω
+            box.scrollTop = box.scrollHeight;
         }
     }
 
@@ -328,27 +343,32 @@
             
             let newMsgArrived = false;
 
+            // Διόρθωση Bug: Αποθήκευση ΠΡΙΝ το rendering
+            chatData = data;
+
             if (data.QA.length > msgCounts.QA) {
                 msgCounts.QA = data.QA.length;
+                newMsgArrived = true; // Τώρα χτυπάει πάντα
                 if (activeChatTab !== 'QA') {
                     document.getElementById('btn-QA').classList.add('new-msg');
-                    newMsgArrived = true;
                 } else { renderChat(); }
             }
 
             if (data.ENG.length > msgCounts.ENG) {
                 msgCounts.ENG = data.ENG.length;
+                newMsgArrived = true; // Τώρα χτυπάει πάντα
                 if (activeChatTab !== 'ENG') {
                     document.getElementById('btn-ENG').classList.add('new-msg');
-                    newMsgArrived = true;
                 } else { renderChat(); }
             }
 
-            chatData = data;
+            // Σε περίπτωση που κάποιος καθάρισε τα μηνύματα
+            if (data.QA.length < msgCounts.QA) { msgCounts.QA = data.QA.length; if(activeChatTab === 'QA') renderChat(); }
+            if (data.ENG.length < msgCounts.ENG) { msgCounts.ENG = data.ENG.length; if(activeChatTab === 'ENG') renderChat(); }
             
             if (newMsgArrived) { 
                 playChime(); 
-                document.getElementById('chatWindow').classList.remove('minimized'); // Αν είναι κλειστό, ανοίγει αυτόματα!
+                document.getElementById('chatWindow').classList.remove('minimized'); 
             }
 
         } catch(e) {}
@@ -459,9 +479,7 @@
                 clearInterval(alertInterval);
             }
 
-        } catch (e) {
-            console.log("Polling error.");
-        }
+        } catch (e) {}
     }
 
     function setTarget(stationId) {
@@ -497,11 +515,8 @@
     }
 
     initUI();
-    
-    // Τρέχουν κάθε 2 και 3 δευτερόλεπτα αντίστοιχα
     setInterval(fetchSupervisorData, 2000);
     setInterval(fetchChatMessages, 3000);
-    
     fetchSupervisorData();
     fetchChatMessages();
 
