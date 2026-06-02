@@ -55,17 +55,14 @@
         .alert-btn { color: #11111b; border: none; padding: 8px 20px; font-weight: bold; font-size: 1.1rem; border-radius: 6px; cursor: pointer; width: 100%; transition: transform 0.1s; }
         .alert-btn:active { transform: scale(0.95); }
 
-        /* Supervisor (Red/Pink) */
         .alert-box.supervisor { background-color: rgba(243, 139, 168, 0.1); border-color: #f38ba8; animation: pulse-super 1s infinite alternate; }
         .alert-text.supervisor { color: #f38ba8; }
         .alert-btn.supervisor { background-color: #f38ba8; }
 
-        /* QA (Orange/Peach) */
         .alert-box.qa { background-color: rgba(250, 179, 135, 0.1); border-color: #fab387; animation: pulse-qa 1s infinite alternate; }
         .alert-text.qa { color: #fab387; }
         .alert-btn.qa { background-color: #fab387; }
 
-        /* Engineer (Blue) */
         .alert-box.engineer { background-color: rgba(137, 180, 250, 0.1); border-color: #89b4fa; animation: pulse-eng 1s infinite alternate; }
         .alert-text.engineer { color: #89b4fa; }
         .alert-btn.engineer { background-color: #89b4fa; }
@@ -135,6 +132,12 @@
             <tbody id="shiftTableBody">
                 </tbody>
         </table>
+    </div>
+
+    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
+        <button onclick="window.open('reports.html', '_blank')" style="background-color: #cba6f7; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(203, 166, 247, 0.4); transition: 0.2s;">
+            📂 Open Production Reports & History Hub
+        </button>
     </div>
 
 <script>
@@ -216,7 +219,7 @@
                 isSoundEnabled = true;
                 btn.className = "btn-sound active";
                 btn.innerHTML = "🔊 Sound Alerts: ON";
-                playChime(); // Δοκιμαστικός ήχος για να ξέρει ότι δουλεύει
+                playChime(); 
             } catch(e) {
                 alert("Audio is not supported in this browser.");
             }
@@ -234,7 +237,6 @@
     function playChime() {
         if (!isSoundEnabled || !audioContext) return;
         try {
-            // Ένας απαλός, διπλός "ηλεκτρονικός" ήχος που δεν τρομάζει
             let osc1 = audioContext.createOscillator();
             let gainNode = audioContext.createGain();
             osc1.connect(gainNode);
@@ -267,7 +269,6 @@
                 let st = data[i.toString()];
                 if (!st) continue;
 
-                // Άθροισμα για την Κεντρική Μπάρα Εργοστασίου
                 globalTotalPieces += st.shift_total || 0;
                 globalTotalTarget += st.shift_target || 0;
 
@@ -287,14 +288,13 @@
                 document.getElementById(`c-pcs-${i}`).textContent = (st.job_total || 0).toLocaleString();
                 document.getElementById(`c-plts-${i}`).textContent = st.job_pallets || 0;
 
-                // Color-Coded Alerts
                 let alertBox = document.getElementById(`alert-${i}`);
                 let alertText = document.getElementById(`alert-text-${i}`);
                 let alertBtn = document.getElementById(`alert-btn-${i}`);
 
                 if (st.worker_alert !== "" && !st.alert_acknowledged) {
                     anyAlertActive = true;
-                    let typeClass = st.worker_alert.toLowerCase(); // "supervisor", "qa", or "engineer"
+                    let typeClass = st.worker_alert.toLowerCase(); 
                     
                     alertBox.className = `alert-box ${typeClass}`;
                     alertText.className = `alert-text ${typeClass}`;
@@ -335,7 +335,6 @@
                 if (pct >= 100) { progBar.classList.add('done'); } else { progBar.classList.remove('done'); }
             }
 
-            // Ενημέρωση Κεντρικής Μπάρας
             let facBar = document.getElementById('factoryProgFill');
             let facText = document.getElementById('factoryNumText');
             
@@ -351,11 +350,10 @@
             facBar.textContent = facPct > 0 ? `${facPct}%` : "";
             if (facPct >= 100 && globalTotalTarget > 0) { facBar.classList.add('done'); } else { facBar.classList.remove('done'); }
 
-            // Διαχείριση Ήχου
             if (anyAlertActive && !isAlertPlaying) {
                 isAlertPlaying = true;
-                playChime(); // Παίζει αμέσως την πρώτη φορά
-                alertInterval = setInterval(playChime, 4000); // Και μετά κάθε 4 δεύτερα
+                playChime(); 
+                alertInterval = setInterval(playChime, 4000); 
             } else if (!anyAlertActive && isAlertPlaying) {
                 isAlertPlaying = false;
                 clearInterval(alertInterval);
@@ -401,12 +399,6 @@
     initUI();
     setInterval(fetchSupervisorData, 2000);
     fetchSupervisorData();
-
-    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
-        <button onclick="window.open('reports.html', '_blank')" style="background-color: #cba6f7; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(203, 166, 247, 0.4); transition: 0.2s;">
-            📂 Open Production Reports & History Hub
-        </button>
-    </div>
 
 </script>
 </body>
