@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team QR Invite Codes</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 40px; text-align: center; }
+        h1 { color: #89b4fa; font-size: 2.5rem; margin-bottom: 10px; }
+        p { color: #a6adc8; font-size: 1.2rem; margin-bottom: 40px; }
+        
+        .qr-container { display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; }
+        
+        .qr-card { background-color: #313244; padding: 30px; border-radius: 15px; border-top: 5px solid; box-shadow: 0 10px 20px rgba(0,0,0,0.3); width: 280px; display: flex; flex-direction: column; align-items: center; }
+        .qr-card.qa { border-color: #fab387; }
+        .qr-card.eng { border-color: #89b4fa; }
+        .qr-card.super { border-color: #f38ba8; }
+        
+        .qr-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+        .qr-card.qa .qr-title { color: #fab387; }
+        .qr-card.eng .qr-title { color: #89b4fa; }
+        .qr-card.super .qr-title { color: #f38ba8; }
+        
+        .qr-image { width: 200px; height: 200px; background-color: #fff; padding: 10px; border-radius: 10px; margin-bottom: 20px; }
+        
+        .qr-instruction { font-size: 0.95rem; color: #cdd6f4; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <h1>📱 Telegram Team Onboarding</h1>
+    <p>Scan the QR codes below with your phone's camera to join the Packing Hall alert groups.</p>
+
+    <div class="qr-container">
+        
+        <div class="qr-card qa">
+            <div class="qr-title">QA Team</div>
+            <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://t.me/+LUPA-t5k-ts1OWNk" alt="QA QR Code">
+            <div class="qr-instruction">Scan to receive and reply to QA calls from the tablets.</div>
+        </div>
+
+        <div class="qr-card eng">
+            <div class="qr-title">Engineers Team</div>
+            <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://t.me/+aPlTLSEejeAxOGJk" alt="Engineer QR Code">
+            <div class="qr-instruction">Scan to receive and reply to Engineer calls from the tablets.</div>
+        </div>
+
+        <div class="qr-card super">
+            <div class="qr-title">Supervisors Only</div>
+            <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://t.me/+ShXvhTe-Png0YmM0" alt="Supervisor QR Code">
+            <div class="qr-instruction">Scan to receive all factory alerts and administrative updates.</div>
+        </div>
+
+    </div>
+
+</body>
+</html>
