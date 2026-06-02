@@ -160,7 +160,12 @@
         </table>
     </div>
 
-    <!-- ΤΟ ΠΑΡΑΘΥΡΟ ΣΥΝΟΜΙΛΙΑΣ -->
+    <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
+        <button onclick="window.open('reports.html', '_blank')" style="background-color: #cba6f7; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(203, 166, 247, 0.4); transition: 0.2s;">
+            📂 Open Production Reports & History Hub
+        </button>
+    </div>
+
     <div class="chat-window minimized" id="chatWindow">
         <div class="chat-top-bar" onclick="toggleChat()">
             <div class="chat-top-title">💬 Live Field Updates</div>
@@ -174,10 +179,8 @@
             <button class="tab-btn" id="btn-ENG" onclick="switchTab('ENG', event)">ENG</button>
         </div>
         <div class="chat-content" id="chat-box">
-            <!-- Messages load here -->
-        </div>
+            </div>
         
-        <!-- 🔥 ΝΕΟ: ΠΕΔΙΟ ΓΙΑ ΝΑ ΣΤΕΛΝΕΙ ΜΗΝΥΜΑ Ο ΕΠΟΠΤΗΣ 🔥 -->
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Reply to team..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
             <button onclick="sendChatMessage()">Send</button>
@@ -385,7 +388,6 @@
         } catch(e) {}
     }
 
-    // 🔥 ΝΕΟ: ΛΕΙΤΟΥΡΓΙΑ ΓΙΑ ΑΠΟΣΤΟΛΗ ΜΗΝΥΜΑΤΟΣ ΣΤΟ TELEGRAM 🔥
     function sendChatMessage() {
         let inputField = document.getElementById('chatInput');
         let msg = inputField.value.trim();
@@ -396,8 +398,8 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tab: activeChatTab, message: msg })
         }).then(() => {
-            inputField.value = ""; // Καθαρίζει το πεδίο
-            fetchChatMessages(); // Ανανεώνει άμεσα το παράθυρο για να φανεί
+            inputField.value = ""; 
+            fetchChatMessages(); 
         }).catch(err => alert("Error sending message. Check connection."));
     }
 
