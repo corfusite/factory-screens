@@ -51,7 +51,6 @@ function getCurrentShift() {
     return "Night Shift";
 }
 
-// 🔥 ΑΛΛΑΓΗ ΣΤΟΝ ΣΥΓΧΡΟΝΙΣΜΟ (ΔΙΠΛΑ ΔΕΔΟΜΕΝΑ ΓΙΑ ΤΟΝ ΕΠΟΠΤΗ) 🔥
 function sendSyncToServer(isOffline = false) {
     if (!SERVER_URL || !SERVER_URL.includes("http")) return;
     
@@ -120,67 +119,38 @@ function refreshSavedJobsUI() {
 }
 
 async function createNewJobConfiguration() {
-    // 1. READ INPUTS
     let bNumInput = document.getElementById('setupBatchNumber').value.trim();
     let bSzInput = document.getElementById('setupBatchSize').value;
     let pBxInput = document.getElementById('setupProdPerBox').value;
     let bLyInput = document.getElementById('setupBoxesPerLayer').value;
     let lPlInput = document.getElementById('setupLayersPerPallet').value;
 
-    // 2. VALIDATION - Stops execution if something is missing
-    if (bNumInput === "") {
-        alert("⚠️ ERROR: Please enter the Batch Number / Order ID!");
-        document.getElementById('setupBatchNumber').focus();
-        return; 
-    }
-    if (!bSzInput || parseInt(bSzInput) <= 0) {
-        alert("⚠️ ERROR: Please enter a valid Batch Size (greater than zero)!");
-        document.getElementById('setupBatchSize').focus();
-        return;
-    }
-    if (!pBxInput || parseInt(pBxInput) <= 0) {
-        alert("⚠️ ERROR: Please enter Products per Box!");
-        document.getElementById('setupProdPerBox').focus();
-        return;
-    }
-    if (!bLyInput || parseInt(bLyInput) <= 0) {
-        alert("⚠️ ERROR: Please enter Boxes per Layer!");
-        document.getElementById('setupBoxesPerLayer').focus();
-        return;
-    }
-    if (!lPlInput || parseInt(lPlInput) <= 0) {
-        alert("⚠️ ERROR: Please enter Layers per Pallet!");
-        document.getElementById('setupLayersPerPallet').focus();
-        return;
-    }
+    if (bNumInput === "") { alert("⚠️ ERROR: Please enter the Batch Number / Order ID!"); document.getElementById('setupBatchNumber').focus(); return; }
+    if (!bSzInput || parseInt(bSzInput) <= 0) { alert("⚠️ ERROR: Please enter a valid Batch Size!"); document.getElementById('setupBatchSize').focus(); return; }
+    if (!pBxInput || parseInt(pBxInput) <= 0) { alert("⚠️ ERROR: Please enter Products per Box!"); document.getElementById('setupProdPerBox').focus(); return; }
+    if (!bLyInput || parseInt(bLyInput) <= 0) { alert("⚠️ ERROR: Please enter Boxes per Layer!"); document.getElementById('setupBoxesPerLayer').focus(); return; }
+    if (!lPlInput || parseInt(lPlInput) <= 0) { alert("⚠️ ERROR: Please enter Layers per Pallet!"); document.getElementById('setupLayersPerPallet').focus(); return; }
 
     let stId = document.getElementById('setupStationId').value;
     let sName = STATION_NAMES[stId] || "Unknown";
 
-    // 🔥 3. ΑΥΣΤΗΡΟΣ ΕΛΕΓΧΟΣ: ΜΠΛΟΚΑΡΕΙ ΤΗ ΣΥΝΔΕΣΗ ΑΝ Η ΓΡΑΜΜΗ ΕΙΝΑΙ ΠΙΑΣΜΕΝΗ 🔥
     if (SERVER_URL && SERVER_URL.includes("http")) {
         try {
             const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
             const serverData = await res.json();
-            
-            // Αν η γραμμή φαίνεται "Online" στον Επόπτη, ΑΠΑΓΟΡΕΥΕΙ τη δημιουργία
             if (serverData[stId] && serverData[stId].status === "Online") {
-                alert(`⛔ ACCESS DENIED: ${sName} is already ONLINE and running a job (Batch: ${serverData[stId].batch_number})!\n\nYou cannot start a new job on a station that is currently in use. Please select a different station.`);
-                return; // Σταματάει ΑΜΕΣΩΣ τον κώδικα, δεν τον αφήνει να προχωρήσει
+                alert(`⛔ ACCESS DENIED: ${sName} is already ONLINE and running a job (Batch: ${serverData[stId].batch_number})!`);
+                return;
             }
-        } catch(e) {
-            // Αν δεν έχει ίντερνετ εκείνη τη στιγμή, προχωράμε αναγκαστικά
-        }
+        } catch(e) {}
     }
 
-    // 4. IF ALL VALID AND STATION IS FREE, PROCEED TO CREATE JOB
     let id = 'job_' + Date.now();
     let now = new Date();
     let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
 
     stationId = stId; 
     let bNum = bNumInput; 
-
     let bSz = parseInt(bSzInput);
     let pBx = parseInt(pBxInput);
     let bLy = parseInt(bLyInput);
@@ -215,33 +185,25 @@ async function createNewJobConfiguration() {
     loadSelectedJob(id);
 }
 
-// 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ ΓΙΑ ΤΟ ΠΟΣΟΣΤΟ ΠΡΟΟΔΟΥ ΤΗΣ ΔΟΥΛΕΙΑΣ 🔥
 function updateJobProgressUI(currentTotalProducts) {
     if (!batchSize || batchSize <= 0) return;
-
     let percentage = (currentTotalProducts / batchSize) * 100;
     let difference = currentTotalProducts - batchSize;
-
     let pctEl = document.getElementById('ui-progress-pct');
     let diffEl = document.getElementById('ui-progress-diff');
-
     if (!pctEl || !diffEl) return;
 
-    // Εμφάνιση Ποσοστού (με 1 δεκαδικό ψηφίο)
     pctEl.textContent = percentage.toFixed(1) + "%";
-
-    // Λογική Χρωμάτων (Κόκκινο = Μείον / Πράσινο = Συν)
     if (difference < 0) {
-        diffEl.textContent = difference; // π.χ. -500
-        diffEl.style.color = "#f38ba8";  // Κόκκινο
+        diffEl.textContent = difference;
+        diffEl.style.color = "#f38ba8";
         pctEl.style.color = "#f38ba8";
     } else {
-        diffEl.textContent = "+" + difference; // π.χ. +50
-        diffEl.style.color = "#a6e3a1";  // Πράσινο
+        diffEl.textContent = "+" + difference;
+        diffEl.style.color = "#a6e3a1";
         pctEl.style.color = "#a6e3a1";
     }
 }
-// --------------------------------------------------------
 
 function loadSelectedJob(id) {
     activeJobId = id;
@@ -300,7 +262,6 @@ function loadSelectedJob(id) {
     document.getElementById('resDifference').textContent = "0";
     document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
 
-    // 🔥 Ενημέρωση του Ποσοστού Προόδου κατά τη φόρτωση
     updateJobProgressUI(initialCalculatedTotal);
 
     document.getElementById('setupScreen').style.display = 'none';
@@ -346,7 +307,6 @@ function saveActiveJobState() {
     }
     jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2;
     saveDatabaseToStorage();
-    
     allStationsGlobalData[stationId] = globalData;
     localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
 }
@@ -364,11 +324,9 @@ function deleteJobFromDatabase(id, event) {
 function exitToJobList() {
     if (isRunning) toggleTimers();
     if (isAlarmActive) { isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; } }
-    
     saveActiveJobState(); 
     activeJobId = null;
     sendSyncToServer(true);
-
     if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
     document.getElementById('mainDashboard').style.display = 'none';
     document.getElementById('setupScreen').style.display = 'flex';
@@ -376,34 +334,21 @@ function exitToJobList() {
 }
 
 function finishJobAndReport() {
-    if(!confirm("Are you sure you want to Finish this job?\n\nIt will be permanently saved to the Reports Hub with all hourly details, and removed from your screen.")) return;
-    
+    if(!confirm("Are you sure you want to Finish this job?")) return;
     let job = jobsDatabase[activeJobId];
     let hpElement = document.getElementById('hiddenPalletsCount');
     let reportData = {
-        station_name: STATION_NAMES[job.stationId],
-        batch_number: job.batchNumber,
-        batch_target: job.batchSize,
-        total_produced: job.lastSyncedTotal,
-        completed_pallets: hpElement ? parseInt(hpElement.textContent) || 0 : 0,
-        prod_per_box: job.prodPerBox,
-        boxes_per_layer: job.boxesPerLayer,
-        layers_per_pallet: job.layersPerPallet,
-        starting_products: job.startingProducts,
-        hourly_labels: globalData.chartLabels,
-        hourly_data: globalData.chartData,
-        logs: job.logs
+        station_name: STATION_NAMES[job.stationId], batch_number: job.batchNumber, batch_target: job.batchSize,
+        total_produced: job.lastSyncedTotal, completed_pallets: hpElement ? parseInt(hpElement.textContent) || 0 : 0,
+        prod_per_box: job.prodPerBox, boxes_per_layer: job.boxesPerLayer, layers_per_pallet: job.layersPerPallet,
+        starting_products: job.startingProducts, hourly_labels: globalData.chartLabels, hourly_data: globalData.chartData, logs: job.logs
     };
 
     if (SERVER_URL && SERVER_URL.includes("http")) {
         fetch(`${SERVER_URL}/api/save_report`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify(reportData)
-        }).then(() => {
-            delete jobsDatabase[activeJobId];
-            saveDatabaseToStorage();
-            exitToJobList(); 
-        }).catch(e => alert("Network Error. Cannot save to Reports right now."));
+            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.dumps(reportData)
+        }).then(() => { delete jobsDatabase[activeJobId]; saveDatabaseToStorage(); exitToJobList(); 
+        }).catch(e => alert("Network Error. Cannot save right now."));
     }
 }
 
@@ -419,7 +364,6 @@ function updatePalletFills(currentTotal) {
     let seq = job.palletSequence || []; 
     let totalPalletsTarget = seq.length;
     let tempTotal = currentTotal; 
-    
     let completedPallets = 0; 
     let activePalletSize = productsPerPallet; 
     
@@ -452,7 +396,6 @@ function updatePalletFills(currentTotal) {
         boxRemaining.style.borderColor = "#45475a"; valRemaining.style.color = "#a6adc8";
         valRemaining.style.fontSize = "2.2rem"; valRemaining.textContent = Number(inactivePallets.toFixed(2));
     }
-    
     let hpElement = document.getElementById('hiddenPalletsCount');
     if(hpElement) hpElement.textContent = completedPallets;
 }
@@ -495,12 +438,9 @@ function updateLiveProgress() {
 
     let lastSynced = jobsDatabase[activeJobId].lastSyncedTotal || 0;
     let deltaTotal = currentTotalProducts - lastSynced;
-
     globalData.shiftTotal += deltaTotal;
 
     updatePalletFills(currentTotalProducts); 
-    
-    // 🔥 Ενημέρωση Ποσοστού εδώ 🔥
     updateJobProgressUI(currentTotalProducts);
 
     document.getElementById('resNewTotal').textContent = currentTotalProducts;
@@ -514,7 +454,6 @@ function updateLiveProgress() {
     
     allStationsGlobalData[stationId] = globalData;
     localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
-
     sendSyncToServer(false);
     addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
 }
@@ -536,8 +475,6 @@ function calculateProduction() {
     globalData.shiftTotal += deltaTotal;
 
     updatePalletFills(currentTotalProducts); 
-    
-    // 🔥 Ενημέρωση Ποσοστού εδώ 🔥
     updateJobProgressUI(currentTotalProducts);
 
     document.getElementById('resPrevTotal').textContent = previousTotalProducts;
@@ -562,10 +499,8 @@ function calculateProduction() {
     jobsDatabase[activeJobId].currentLooseVal = looseProducts;
     jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts;
     saveActiveJobState(); 
-    
     allStationsGlobalData[stationId] = globalData;
     localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
-
     sendSyncToServer(false);
 }
 
@@ -574,9 +509,7 @@ async function pollSupervisorTarget() {
     try {
         const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
         const data = await res.json();
-        
         if(data[stationId]) {
-            
             if (data[stationId].reset_flag === true) {
                 globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
                 allStationsGlobalData[stationId] = globalData;
@@ -591,43 +524,31 @@ async function pollSupervisorTarget() {
                         chartInstance.update();
                     }
                     addLogEntry("⚠️ Shift Data Reset remotely by Supervisor!", "check");
-                    
                     let currentTotalNow = (Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0) * prodPerBox) + Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
                     jobsDatabase[activeJobId].lastSyncedTotal = currentTotalNow;
                     jobsDatabase[activeJobId].previousTotalProducts = currentTotalNow;
                     saveDatabaseToStorage();
-                    
                     sendSyncToServer(false);
                 }
-                
                 fetch(`${SERVER_URL}/api/ack_reset`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ station_id: stationId })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId })
                 }).catch(e => {});
             }
 
             if (!activeJobId) return; 
-            
             globalShiftTarget = data[stationId].shift_target || 0;
             updateShiftGoalUI(globalData.shiftTotal);
             
             let sMsg = data[stationId].supervisor_message;
             let isRead = data[stationId].message_read;
-
             if (sMsg !== "" && !isRead && localMessageRead) {
                 localMessageRead = false; 
                 triggerSupervisorMessage(sMsg);
             }
 
             let serverAcked = data[stationId].alert_acknowledged;
-            
-            if (alertStateMachine === 1 && serverAcked === false) {
-                alertStateMachine = 2;
-            } 
-            else if (alertStateMachine === 2 && serverAcked === true) {
-                alertStateMachine = 0;
-                playAckVoice(); 
-            }
+            if (alertStateMachine === 1 && serverAcked === false) { alertStateMachine = 2; } 
+            else if (alertStateMachine === 2 && serverAcked === true) { alertStateMachine = 0; playAckVoice(); }
         }
     } catch(e) {}
 }
@@ -635,25 +556,66 @@ async function pollSupervisorTarget() {
 setInterval(pollSupervisorTarget, 4000);
 pollSupervisorTarget();
 
+// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΗ ΛΕΙΤΟΥΡΓΙΑ: INDUSTRIAL HANDSHAKE ALERT 🔥
 function sendHelpAlert(type) {
-    addLogEntry(`> Alert sent to ${type}. Awaiting response...`, 'check');
-    alertStateMachine = 1; 
+    if (!stationId) return;
 
-    if (SERVER_URL && SERVER_URL.includes("http")) {
-        fetch(`${SERVER_URL}/api/send_alert`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, alert: type })
-        }).catch(error => { console.log("Network delay ignored."); });
-    }
+    // Βρίσκουμε το κουμπί που πατήθηκε βάσει του τύπου (Supervisor, QA, Engineer)
+    let btnClassMap = { "Supervisor": ".call-supervisor", "QA": ".call-qa", "Engineer": ".call-eng" };
+    let btnSelector = btnClassMap[type];
+    let btnElement = document.querySelector(btnSelector);
+    
+    // Αποθηκεύουμε το αρχικό κείμενο του κουμπιού για να το επαναφέρουμε
+    let originalText = btnElement.textContent;
+
+    // Κλειδώνουμε το κουμπί και δείχνουμε ότι στέλνει (Handshake pending)
+    btnElement.disabled = true;
+    btnElement.textContent = `⏳ Sending...`;
+    btnElement.style.opacity = "0.6";
+
+    fetch(`${SERVER_URL}/api/send_alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ station_id: stationId, alert: type })
+    })
+    .then(response => {
+        // ΔΙΚΛΕΙΔΑ: Αν ο Server γυρίσει σφάλμα (π.χ. απέτυχε το Telegram), πάμε στο catch
+        if (!response.ok) {
+            throw new Error("Network / Telegram Delivery Failure");
+        }
+        return response.json();
+    })
+    .then(data => {
+        // ΕΠΙΤΥΧΙΑ: Το μήνυμα παραδόθηκε 100% στο Telegram!
+        addLogEntry(`> Alert sent to ${type}. Delivered to Telegram.`, 'check');
+        alertStateMachine = 1; 
+        
+        // Επαναφέρουμε το κουμπί στην αρχική του κατάσταση
+        btnElement.disabled = false;
+        btnElement.textContent = originalText;
+        btnElement.style.opacity = "1";
+    })
+    .catch(error => {
+        // ΑΠΟΤΥΧΙΑ: Το WiFi έπεσε ή το Telegram API απέτυχε
+        console.error("Alert failed to deliver:", error);
+        
+        // Η οθόνη ενημερώνει ΑΜΕΣΩΣ τον εργάτη με κόκκινο σήμα κινδύνου
+        alert(`❌ NETWORK ERROR: Αποτυχία αποστολής ειδοποίησης στον ${type}!\n\nΤο μήνυμα ΔΕΝ έφτασε ποτέ. Παρακαλώ ελέγξτε το WiFi του tablet ή ξαναπροσπαθήστε.`);
+        
+        addLogEntry(`❌ FAILED: Alert to ${type} could not be delivered!`, 'check');
+
+        // Επαναφέρουμε το κουμπί αλλά με προειδοποίηση
+        btnElement.disabled = false;
+        btnElement.textContent = `❌ Retry ${type}`;
+        btnElement.style.opacity = "1";
+    });
 }
 
 function triggerSupervisorMessage(msgText) {
     document.getElementById('msgOverlay').style.display = 'flex';
     document.getElementById('msgOverlayText').textContent = msgText;
-    
     radioWasPlayingBeforeMsg = !radioAudio.paused;
     stopRadio();
-    
     let ttsText = `Message from Supervisor. ${msgText}. Please check your screen.`;
     speakText(ttsText);
     activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000);
@@ -663,16 +625,12 @@ function acknowledgeSupervisorMessage() {
     document.getElementById('msgOverlay').style.display = 'none';
     clearInterval(activeMessageInterval);
     window.speechSynthesis.cancel();
-    
     localMessageRead = true;
-    
     if (SERVER_URL && SERVER_URL.includes("http")) {
         fetch(`${SERVER_URL}/api/read_message`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId })
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId })
         }).catch(e => {});
     }
-
     if (radioWasPlayingBeforeMsg) { startRadio(); radioWasPlayingBeforeMsg = false; }
 }
 
@@ -683,10 +641,7 @@ function playAckVoice() {
     let ut = new SpeechSynthesisUtterance("Your alert was acknowledged by the supervisor.");
     let v = window.speechSynthesis.getVoices().find(v => v.name === voiceSelector.value);
     if (v) ut.voice = v;
-    
-    ut.onend = function() {
-        if (wasRadio) startRadio();
-    };
+    ut.onend = function() { if (wasRadio) startRadio(); };
     window.speechSynthesis.speak(ut);
     addLogEntry(`✓ Supervisor acknowledged your call!`, 'check');
 }
@@ -719,32 +674,21 @@ async function loadRadioStations() {
 function loadAvailableVoices() {
     if (!('speechSynthesis' in window)) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; return; }
     let voices = window.speechSynthesis.getVoices(); voiceSelector.innerHTML = "";
-    
     if (voices.length === 0) {
         hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8";
         let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)";
         voiceSelector.appendChild(opt); return;
     }
     hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
-    
     voices.forEach(v => {
         let opt = document.createElement('option'); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelector.appendChild(opt);
     });
-
     let savedVoice = localStorage.getItem('selected_work_voice');
-    if (savedVoice && voices.some(v => v.name === savedVoice)) { 
-        voiceSelector.value = savedVoice; 
-    } else {
-        let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK'));
-        if (ukVoice) voiceSelector.value = ukVoice.name;
-    }
+    if (savedVoice && voices.some(v => v.name === savedVoice)) { voiceSelector.value = savedVoice; } 
+    else { let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK')); if (ukVoice) voiceSelector.value = ukVoice.name; }
 }
 
-function onVoiceChange() {
-    localStorage.setItem('selected_work_voice', voiceSelector.value);
-    if ('speechSynthesis' in window) { speakText("Voice test confirmed."); }
-}
-
+function onVoiceChange() { localStorage.setItem('selected_work_voice', voiceSelector.value); if ('speechSynthesis' in window) { speakText("Voice test confirmed."); } }
 function toggleRadio() { if (!radioAudio.paused) { stopRadio(); } else { startRadio(); } }
 function startRadio() { let url = stationSelector.value; if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; } }
 function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
@@ -796,9 +740,8 @@ function playDigitalBeep() {
 
 function triggerAlertSound() {
     if (!isAlarmActive) return;
-    if (hasEnglishVoice && voiceSelector.value) {
-        speakText(alarmMessage);
-    } else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); }
+    if (hasEnglishVoice && voiceSelector.value) { speakText(alarmMessage); } 
+    else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); }
 }
 
 function buildAlarmMessage(t1, t2) {
@@ -826,7 +769,6 @@ function dismissAlarm() {
     if (t2Triggered) { timer2Remaining = TIME_1_HOUR; timer2EndTime = now + (TIME_1_HOUR * 1000); }
 
     updateDisplays(); saveActiveJobState();
-
     isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none';
     if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; }
 }
@@ -844,6 +786,5 @@ function addLogEntry(text, typeClass) {
 
 refreshSavedJobsUI();
 loadRadioStations(); 
-
 if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } 
 else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
