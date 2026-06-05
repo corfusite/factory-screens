@@ -560,6 +560,9 @@
     }
 
     function ackAlert(stationId) {
+        // 🔴 ΝΕΟ: Εξαφανίζει το alert από την οθόνη ΑΜΕΣΩΣ με το πρώτο κλικ, για να μην ξαναπατάς!
+        document.getElementById(`alert-${stationId}`).style.display = "none";
+
         fetch(`${SERVER_URL}/api/ack_alert`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ station_id: stationId })
