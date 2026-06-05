@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Factory Production Portal</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .portal-container { display: flex; gap: 40px; background-color: #313244; padding: 40px; border-radius: 20px; box-shadow: 0 15px 40px rgba(0,0,0,0.5); border: 2px solid #45475a; max-width: 900px; width: 90%; }
+        .portal-section { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; border-radius: 15px; background-color: #1e1e2e; border: 1px solid #45475a; text-align: center; }
+        .portal-section h2 { margin-top: 0; font-size: 1.8rem; letter-spacing: 1px; }
+        .section-worker h2 { color: #a6e3a1; }
+        .section-supervisor h2 { color: #89b4fa; }
+        p { color: #a6adc8; font-size: 1rem; margin-bottom: 25px; line-height: 1.4; }
+        .btn-portal { border: none; padding: 15px 30px; font-size: 1.2rem; font-weight: bold; border-radius: 10px; cursor: pointer; width: 100%; box-sizing: border-box; transition: 0.2s; text-transform: uppercase; }
+        .btn-worker { background-color: #a6e3a1; color: #11111b; box-shadow: 0 5px 15px rgba(166, 227, 161, 0.3); }
+        .btn-worker:hover { background-color: #94e2d5; }
+        .btn-supervisor { background-color: #89b4fa; color: #11111b; box-shadow: 0 5px 15px rgba(137, 180, 250, 0.3); }
+        .btn-supervisor:hover { background-color: #74c7ec; }
+        
+        .login-form { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
+        .login-form input { padding: 12px; border-radius: 8px; border: 1px solid #45475a; background-color: #11111b; color: #fff; font-size: 1rem; }
+        .error-msg { color: #f38ba8; font-size: 0.95rem; font-weight: bold; min-height: 20px; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="portal-container">
+        
+        <div class="portal-section section-worker">
+            <h2>Worker Terminal</h2>
+            <p>Access the factory line terminals to manage active jobs, hourly production counts, and send radio/voice alerts.</p>
+            <button class="btn-portal btn-worker" onclick="window.location.href='ProductivityStation.html'">Open Tablet Panel</button>
+        </div>
+
+        <div class="portal-section section-supervisor">
+            <h2>Supervisor Panel</h2>
+            <p>Secure administrative access to set targets, read/reply to field chats, review logs, and audit performance reports.</p>
+            
+            <div class="login-form">
+                <input type="text" id="username" placeholder="Username">
+                <input type="password" id="password" placeholder="Password" onkeypress="if(event.key === 'Enter') handleLogin()">
+                <button class="btn-portal btn-supervisor" onclick="handleLogin()">Login</button>
+                <div class="error-msg" id="errorMsg"></div>
+            </div>
+        </div>
+
+    </div>
+
+<script>
+    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
+    const SERVER_URL = "https://my-factory-server.onrender.com";
+
+    function handleLogin() {
+        const u = document.getElementById('username').value.trim();
+        const p = document.getElementById('password').value;
+        const err = document.getElementById('errorMsg');
+        err.textContent = "";
+
+        if(u === "" || p === "") { err.textContent = "Please fill in all fields."; return; }
+
+        fetch(`${SERVER_URL}/api/login`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        })
+        .then(res => {
+            if(!res.ok) throw new Error("Invalid Credentials");
+            return res.json();
+        })
+        .then(data => {
+            // Επιτυχία! Αποθηκεύουμε ένα "κλειδί" στη μνήμη του browser για τη συγκεκριμένη καρτέλα
+            sessionStorage.setItem('supervisor_logged_in', 'true');
+            window.location.href = 'supervisor.html';
+        })
+        .catch(error => {
+            err.textContent = "❌ Invalid Username or Password!";
+        });
+    }
+</script>
+</body>
+</html>
