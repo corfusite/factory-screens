@@ -27,12 +27,14 @@
 
     <div class="portal-container">
         
+        <!-- ΑΡΙΣΤΕΡΑ: ΟΘΟΝΗ ΕΡΓΑΤΗ -->
         <div class="portal-section section-worker">
             <h2>Worker Terminal</h2>
             <p>Access the factory line terminals to manage active jobs, hourly production counts, and send radio/voice alerts.</p>
             <button class="btn-portal btn-worker" onclick="window.location.href='ProductivityStation.html'">Open Tablet Panel</button>
         </div>
 
+        <!-- ΔΕΞΙΑ: PANEL ΕΠΟΠΤΗ ΜΕ LOGIN -->
         <div class="portal-section section-supervisor">
             <h2>Supervisor Panel</h2>
             <p>Secure administrative access to set targets, read/reply to field chats, review logs, and audit performance reports.</p>
@@ -69,9 +71,8 @@
             return res.json();
         })
         .then(data => {
-            // Επιτυχία! Αποθηκεύουμε ένα "κλειδί" στη μνήμη του browser για τη συγκεκριμένη καρτέλα
             sessionStorage.setItem('supervisor_logged_in', 'true');
-            window.location.href = 'supervisor.html';
+            window.location.href = 'SupervisorPanel.html'; // 👈 ΔΙΟΡΘΩΘΗΚΕ ΣΤΟ ΣΩΣΤΟ ΣΟΥ ΟΝΟΜΑ!
         })
         .catch(error => {
             err.textContent = "❌ Invalid Username or Password!";
