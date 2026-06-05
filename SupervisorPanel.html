@@ -453,6 +453,7 @@
                 let alertText = document.getElementById(`alert-text-${i}`);
                 let alertBtn = document.getElementById(`alert-btn-${i}`);
 
+                // 🔥 ΑΝΑΒΑΘΜΙΣΗ: ΕΜΦΑΝΙΣΗ ΣΗΜΕΙΩΜΑΤΟΣ ΕΡΓΑΤΗ ΣΤΗΝ ΟΘΟΝΗ ΕΠΟΠΤΗ 🔥
                 if (st.worker_alert !== "" && !st.alert_acknowledged) {
                     anyAlertActive = true;
                     let typeClass = st.worker_alert.toLowerCase(); 
@@ -461,7 +462,10 @@
                     alertText.className = `alert-text ${typeClass}`;
                     alertBtn.className = `alert-btn ${typeClass}`;
                     
-                    alertText.textContent = `⚠️ Call from: ${st.worker_alert}`;
+                    // Αν υπάρχει σημείωμα, φτιάξε ένα όμορφο εσωτερικό πλαίσιο
+                    let noteHTML = st.worker_note ? `<br><span style="font-size:1rem; font-weight:normal; display:block; margin-top:8px; background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; color:#fff; border-left: 3px solid #fff; text-align:left;">📝 ${st.worker_note}</span>` : "";
+                    
+                    alertText.innerHTML = `⚠️ Call from: ${st.worker_alert}${noteHTML}`;
                     alertBox.style.display = "block";
                 } else {
                     alertBox.style.display = "none";
