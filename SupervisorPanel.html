@@ -493,7 +493,20 @@
                 
                 progBar.style.width = `${pct}%`;
                 progBar.textContent = pct > 0 ? `${pct}%` : "";
-                if (pct >= 100) { progBar.classList.add('done'); } else { progBar.classList.remove('done'); }
+                
+                // 🔥 ΝΕΟ: ΧΡΩΜΑΤΙΚΗ ΠΑΛΕΤΑ ANDON 🔥
+                if (st.shift_target === 0 || pct === 0) {
+                    progBar.style.backgroundColor = "#45475a"; // Σκούρο γκρι αν δεν υπάρχει στόχος
+                } else if (pct < 80) {
+                    progBar.style.backgroundColor = "#f38ba8"; // Κόκκινο (Πολύ πίσω από τον στόχο <80%)
+                    progBar.style.color = "#11111b";
+                } else if (pct >= 80 && pct < 95) {
+                    progBar.style.backgroundColor = "#f9e2af"; // Κίτρινο (Οριακά πίσω 80% - 95%)
+                    progBar.style.color = "#11111b";
+                } else {
+                    progBar.style.backgroundColor = "#a6e3a1"; // Πράσινο (Εντός στόχου >=95%)
+                    progBar.style.color = "#11111b";
+                }
             }
 
             let facBar = document.getElementById('factoryProgFill');
