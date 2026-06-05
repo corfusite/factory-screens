@@ -1,5 +1,5 @@
 /* =========================================
-   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js)
+   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - ΔΙΟΡΘΩΜΕΝΟ
 ========================================= */
 
 // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
@@ -41,7 +41,7 @@ const stationSelector = document.getElementById('stationSelector'), voiceSelecto
 const logList = document.getElementById('logList');
 
 function updateLocalStationId() {
-    stationId = document.getElementById('setupStationId').value;
+    document.getElementById('setupStationId').value = stationId;
 }
 
 function getCurrentShift() {
@@ -262,13 +262,12 @@ function loadSelectedJob(id) {
     document.getElementById('resDifference').textContent = "0";
     document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
 
-    updateJobProgressUI(initialCalculatedTotal);
-
     document.getElementById('setupScreen').style.display = 'none';
     document.getElementById('mainDashboard').style.display = 'block';
 
     initChart();
     updatePalletFills(initialCalculatedTotal);
+    updateJobProgressUI(initialCalculatedTotal);
     updateShiftGoalUI(globalData.shiftTotal);
     
     logList.innerHTML = "";
@@ -333,10 +332,13 @@ function exitToJobList() {
     refreshSavedJobsUI();
 }
 
+// 🔥🔥🔥 Η ΔΙΟΡΘΩΜΕΝΗ ΚΑΙ ΑΣΦΑΛΗΣ ΣΥΝΑΡΤΗΣΗ ΤΕΡΜΑΤΙΣΜΟΥ 🔥🔥🔥
 function finishJobAndReport() {
-    if(!confirm("Are you sure you want to Finish this job?")) return;
+    if(!confirm("Are you sure you want to Finish this job and send it to Reports Hub?")) return;
+    
     let job = jobsDatabase[activeJobId];
     let hpElement = document.getElementById('hiddenPalletsCount');
+    
     let reportData = {
         station_name: STATION_NAMES[job.stationId], batch_number: job.batchNumber, batch_target: job.batchSize,
         total_produced: job.lastSyncedTotal, completed_pallets: hpElement ? parseInt(hpElement.textContent) || 0 : 0,
@@ -346,9 +348,27 @@ function finishJobAndReport() {
 
     if (SERVER_URL && SERVER_URL.includes("http")) {
         fetch(`${SERVER_URL}/api/save_report`, {
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.dumps(reportData)
-        }).then(() => { delete jobsDatabase[activeJobId]; saveDatabaseToStorage(); exitToJobList(); 
-        }).catch(e => alert("Network Error. Cannot save right now."));
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(reportData) // 👈 ΕΔΩ ΗΤΑΝ ΤΟ ΛΑΘΟΣ! ΔΙΟΡΘΩΘΗΚΕ ΣΕ JSON.stringify!
+        })
+        .then(response => {
+            // Δικλείδα: Αν ο Server αποτύχει, πετάμε σφάλμα και ΔΕΝ σβήνουμε τη δουλειά από το tablet
+            if (!response.ok) {
+                throw new Error("Server failed to save report");
+            }
+            return response.json();
+        })
+        .then(() => { 
+            // Μόνο αν η αποθήκευση στη Google πετύχει, τότε σβήνεται από το Tablet
+            delete jobsDatabase[activeJobId]; 
+            saveDatabaseToStorage(); 
+            exitToJobList(); 
+            alert("✅ Η αναφορά αποθηκεύτηκε με επιτυχία στη βάση δεδομένων!");
+        })
+        .catch(e => {
+            alert("❌ ΣΦΑΛΜΑ: Αποτυχία αποστολής αναφοράς στη βάση δεδομένων της Google!\n\nΗ δουλειά ΔΕΝ χάθηκε, παρέμεινε ασφαλής στο tablet. Παρακαλώ ελέγξτε τη σύνδεση και ξαναπροσπαθήστε.");
+        });
     }
 }
 
@@ -556,19 +576,14 @@ async function pollSupervisorTarget() {
 setInterval(pollSupervisorTarget, 4000);
 pollSupervisorTarget();
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΗ ΛΕΙΤΟΥΡΓΙΑ: INDUSTRIAL HANDSHAKE ALERT 🔥
 function sendHelpAlert(type) {
     if (!stationId) return;
 
-    // Βρίσκουμε το κουμπί που πατήθηκε βάσει του τύπου (Supervisor, QA, Engineer)
     let btnClassMap = { "Supervisor": ".call-supervisor", "QA": ".call-qa", "Engineer": ".call-eng" };
     let btnSelector = btnClassMap[type];
     let btnElement = document.querySelector(btnSelector);
-    
-    // Αποθηκεύουμε το αρχικό κείμενο του κουμπιού για να το επαναφέρουμε
     let originalText = btnElement.textContent;
 
-    // Κλειδώνουμε το κουμπί και δείχνουμε ότι στέλνει (Handshake pending)
     btnElement.disabled = true;
     btnElement.textContent = `⏳ Sending...`;
     btnElement.style.opacity = "0.6";
@@ -579,32 +594,19 @@ function sendHelpAlert(type) {
         body: JSON.stringify({ station_id: stationId, alert: type })
     })
     .then(response => {
-        // ΔΙΚΛΕΙΔΑ: Αν ο Server γυρίσει σφάλμα (π.χ. απέτυχε το Telegram), πάμε στο catch
-        if (!response.ok) {
-            throw new Error("Network / Telegram Delivery Failure");
-        }
+        if (!response.ok) throw new Error("Network Delivery Failure");
         return response.json();
     })
     .then(data => {
-        // ΕΠΙΤΥΧΙΑ: Το μήνυμα παραδόθηκε 100% στο Telegram!
         addLogEntry(`> Alert sent to ${type}. Delivered to Telegram.`, 'check');
         alertStateMachine = 1; 
-        
-        // Επαναφέρουμε το κουμπί στην αρχική του κατάσταση
         btnElement.disabled = false;
         btnElement.textContent = originalText;
         btnElement.style.opacity = "1";
     })
     .catch(error => {
-        // ΑΠΟΤΥΧΙΑ: Το WiFi έπεσε ή το Telegram API απέτυχε
-        console.error("Alert failed to deliver:", error);
-        
-        // Η οθόνη ενημερώνει ΑΜΕΣΩΣ τον εργάτη με κόκκινο σήμα κινδύνου
-        alert(`❌ NETWORK ERROR: Αποτυχία αποστολής ειδοποίησης στον ${type}!\n\nΤο μήνυμα ΔΕΝ έφτασε ποτέ. Παρακαλώ ελέγξτε το WiFi του tablet ή ξαναπροσπαθήστε.`);
-        
+        alert(`❌ NETWORK ERROR: Αποτυχία αποστολής ειδοποίησης στον ${type}!\n\nΤο μήνυμα ΔΕΝ έφτασε. Δοκιμάστε ξανά.`);
         addLogEntry(`❌ FAILED: Alert to ${type} could not be delivered!`, 'check');
-
-        // Επαναφέρουμε το κουμπί αλλά με προειδοποίηση
         btnElement.disabled = false;
         btnElement.textContent = `❌ Retry ${type}`;
         btnElement.style.opacity = "1";
@@ -712,13 +714,13 @@ function toggleTimers() {
         isRunning = false; clearInterval(countdownInterval); let now = Date.now();
         if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000));
         if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000));
-        startPauseBtn.textContent = "Resume Timers"; startPauseBtn.classList.add('paused'); saveActiveJobState();
+        startPauseBtn.textContent = "Resume Timers"; startPauseBtn.className = "btn-main"; saveActiveJobState();
     } else {
         isRunning = true; let now = Date.now();
         if (isNaN(timer1Remaining) || timer1Remaining <= 0) timer1Remaining = TIME_30_MIN;
         if (isNaN(timer2Remaining) || timer2Remaining <= 0) timer2Remaining = TIME_1_HOUR;
         timer1EndTime = now + (timer1Remaining * 1000); timer2EndTime = now + (timer2Remaining * 1000);
-        startPauseBtn.textContent = "Pause (Break)"; startPauseBtn.classList.remove('paused');
+        startPauseBtn.textContent = "Pause (Break)"; startPauseBtn.className = "btn-main";
         countdownInterval = setInterval(() => {
             let currentTime = Date.now(); let t1_ended = false, t2_ended = false;
             if (timer1Remaining > 0) { timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - currentTime) / 1000)); if (timer1Remaining === 0) t1_ended = true; }
