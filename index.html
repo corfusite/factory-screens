@@ -33,6 +33,8 @@
         .login-form { width: 100%; display: flex; flex-direction: column; gap: 12px; margin-top: 15px; }
         .login-form input { padding: 12px; border-radius: 8px; border: 1px solid #45475a; background-color: #11111b; color: #fff; font-size: 1rem; }
         .error-msg { color: #f38ba8; font-size: 0.95rem; font-weight: bold; min-height: 20px; margin-top: 5px; }
+        
+        .authorized-badge { color: #a6e3a1; font-weight: bold; font-size: 1.1rem; margin-bottom: 15px; background-color: rgba(166, 227, 161, 0.1); border: 1px dashed #a6e3a1; padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box; }
     </style>
 </head>
 <body>
@@ -47,7 +49,17 @@
         <div class="portal-section section-worker">
             <h2>Worker Terminal</h2>
             <p>Access the factory line terminals to manage active jobs, hourly production counts, and send radio/voice alerts.</p>
-            <button class="btn-portal btn-worker" onclick="window.location.href='ProductivityStation.html'">Open Tablet Panel</button>
+            
+            <div id="workerAuthSuccess" class="authorized-badge" style="display: none;">✓ DEVICE AUTHORIZED</div>
+            
+            <div class="login-form" id="workerLoginForm">
+                <input type="text" id="w_username" placeholder="Worker Username">
+                <input type="password" id="w_password" placeholder="Worker Password" onkeypress="if(event.key === 'Enter') handleWorkerLogin()">
+                <button class="btn-portal btn-worker" onclick="handleWorkerLogin()">Authorize Terminal</button>
+                <div class="error-msg" id="w_errorMsg"></div>
+            </div>
+            
+            <button class="btn-portal btn-worker" id="btnOpenWorker" style="display: none; margin-top: 15px;" onclick="window.location.href='ProductivityStation.html'">Open Tablet Panel</button>
         </div>
 
         <div class="portal-section section-supervisor">
@@ -55,9 +67,9 @@
             <p>Secure administrative access to set targets, read/reply to field chats, review logs, and audit performance reports.</p>
             
             <div class="login-form">
-                <input type="text" id="username" placeholder="Username">
-                <input type="password" id="password" placeholder="Password" onkeypress="if(event.key === 'Enter') handleLogin()">
-                <button class="btn-portal btn-supervisor" onclick="handleLogin()">Login</button>
+                <input type="text" id="username" placeholder="Supervisor Username">
+                <input type="password" id="password" placeholder="Supervisor Password" onkeypress="if(event.key === 'Enter') handleSupervisorLogin()">
+                <button class="btn-portal btn-supervisor" onclick="handleSupervisorLogin()">Login</button>
                 <div class="error-msg" id="errorMsg"></div>
             </div>
         </div>
@@ -68,68 +80,71 @@
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
 
-    // 🔥 ΝΕΑ ΛΕΙΤΟΥΡΓΙΑ: ΑΥΤΟΜΑΤΟΣ ΕΛΕΓΧΟΣ ΚΑΙ ΞΥΠΝΗΜΑ SERVER 🔥
+    // ΕΛΕΓΧΟΣ ΜΝΗΜΗΣ TABLET ΚΑΤΑ ΤΗΝ ΕΚΚΙΝΗΣΗ
+    function checkDeviceAuthorization() {
+        if (localStorage.getItem('worker_logged_in') === 'true') {
+            document.getElementById('workerLoginForm').style.display = 'none';
+            document.getElementById('workerAuthSuccess').style.style = 'block'; // Fallback
+            document.getElementById('workerAuthSuccess').style.display = 'block';
+            document.getElementById('btnOpenWorker').style.display = 'block';
+        } else {
+            document.getElementById('workerLoginForm').style.display = 'flex';
+            document.getElementById('workerAuthSuccess').style.display = 'none';
+            document.getElementById('btnOpenWorker').style.display = 'none';
+        }
+    }
+
     function checkServerStatusSilently() {
-        fetch(`${SERVER_URL}/`)
-        .then(res => {
-            if(res.ok) {
-                const badge = document.getElementById('serverBadge');
-                badge.className = "status-badge ready";
-                badge.textContent = "🟢 Server Ready & Active";
-            }
-        })
-        .catch(e => {});
+        fetch(`${SERVER_URL}/`).then(res => { if(res.ok) { const badge = document.getElementById('serverBadge'); badge.className = "status-badge ready"; badge.textContent = "🟢 Server Ready & Active"; } }).catch(e => {});
     }
 
     function pingAndWakeUpServer() {
-        const badge = document.getElementById('serverBadge');
-        badge.className = "status-badge loading";
-        badge.textContent = "⏳ Waking up server... Please wait";
-
-        // Στέλνει αίτημα στην αρχική σελίδα του Server για να τον αναγκάσει να κάνει Cold Start
-        fetch(`${SERVER_URL}/`)
-        .then(res => {
-            if(res.ok) {
-                badge.className = "status-badge ready";
-                badge.textContent = "🟢 Server Ready & Active";
-            } else {
-                throw new Error();
-            }
-        })
-        .catch(error => {
-            badge.className = "status-badge sleeping";
-            badge.textContent = "❌ Connection Failed. Retry?";
-        });
+        const badge = document.getElementById('serverBadge'); badge.className = "status-badge loading"; badge.textContent = "⏳ Waking up server... Please wait";
+        fetch(`${SERVER_URL}/`).then(res => { if(res.ok) { badge.className = "status-badge ready"; badge.textContent = "🟢 Server Ready & Active"; } else { throw new Error(); } }).catch(error => { badge.className = "status-badge sleeping"; badge.textContent = "❌ Connection Failed. Retry?"; });
     }
 
-    function handleLogin() {
+    // LOGIN ΕΡΓΑΤΗ (ΑΠΟΘΗΚΕΥΕΤΑΙ ΜΟΝΙΜΑ ΣΤΟ TABLET)
+    function handleWorkerLogin() {
+        const u = document.getElementById('w_username').value.trim();
+        const p = document.getElementById('w_password').value;
+        const err = document.getElementById('w_errorMsg');
+        err.textContent = "";
+        if(u === "" || p === "") { err.textContent = "Please fill in all fields."; return; }
+
+        fetch(`${SERVER_URL}/api/login`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: u, password: p })
+        })
+        .then(res => { if(!res.ok) throw new Error(); return res.json(); })
+        .then(data => {
+            localStorage.setItem('worker_logged_in', 'true'); // 👈 Μόνιμη αποθήκευση στη συσκευή
+            checkDeviceAuthorization();
+        })
+        .catch(error => { err.textContent = "❌ Invalid Worker Credentials!"; });
+    }
+
+    // LOGIN ΕΠΟΠΤΗ (ΖΗΤΕΙΤΑΙ ΚΑΘΕ ΦΟΡΑ ΠΟΥ ΚΛΕΙΝΕΙ Ο BROWSER)
+    function handleSupervisorLogin() {
         const u = document.getElementById('username').value.trim();
         const p = document.getElementById('password').value;
         const err = document.getElementById('errorMsg');
         err.textContent = "";
-
         if(u === "" || p === "") { err.textContent = "Please fill in all fields."; return; }
 
         fetch(`${SERVER_URL}/api/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: u, password: p })
         })
-        .then(res => {
-            if(!res.ok) throw new Error("Invalid Credentials");
-            return res.json();
-        })
+        .then(res => { if(!res.ok) throw new Error(); return res.json(); })
         .then(data => {
-            sessionStorage.setItem('supervisor_logged_in', 'true');
+            sessionStorage.setItem('supervisor_logged_in', 'true'); // 👈 Προσωρινή έγκριση συνεδρίας
             window.location.href = 'SupervisorPanel.html';
         })
-        .catch(error => {
-            err.textContent = "❌ Invalid Username or Password!";
-        });
+        .catch(error => { err.textContent = "❌ Invalid Supervisor Credentials!"; });
     }
 
-    // Μόλις ανοίξει η σελίδα, κάνει ένα κρυφό τεστ. Αν ο server είναι ήδη ξύπνιος, το πράσινο λαμπάκι ανάβει αμέσως!
     checkServerStatusSilently();
+    checkDeviceAuthorization();
 </script>
 </body>
 </html>
