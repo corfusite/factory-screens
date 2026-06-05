@@ -196,6 +196,12 @@
 <script>
     // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
+
+    // 🔥 ΑΣΦΑΛΕΙΑ: ΕΛΕΓΧΟΣ ΑΝ ΕΧΕΙ ΓΙΝΕΙ LOGIN ΑΠΟ ΤΟ PORTAL 🔥
+    if (sessionStorage.getItem('supervisor_logged_in') !== 'true') {
+        alert("🔒 ACCESS DENIED: Please login through the main portal.");
+        window.location.href = 'index.html';
+    }
     
     const STATION_NAMES = {
         "1": "Line 1", "2": "Line 2", "3": "Line 3",
