@@ -286,15 +286,45 @@ async function pollSupervisorTarget() {
 
 setInterval(pollSupervisorTarget, 4000); pollSupervisorTarget();
 
+// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΗ ΛΕΙΤΟΥΡΓΙΑ: ALERT ΜΕ ΠΡΟΑΙΡΕΤΙΚΟ ΠΛΗΚΤΡΟΛΟΓΙΟ 🔥
 function sendHelpAlert(type) {
     if (!stationId) return;
+
+    // 👈 ΝΕΟ: Παράθυρο για προαιρετικό γραπτό μήνυμα
+    let note = prompt(`✍️ Προαιρετικό σημείωμα για τον ${type}\n(π.χ. Διαρροή, Μπλοκάρισμα ταινίας, Σκίσιμο σακούλας):`) || "";
+
     let btnClassMap = { "Supervisor": ".call-supervisor", "QA": ".call-qa", "Engineer": ".call-eng" };
-    let btnSelector = btnClassMap[type]; let btnElement = document.querySelector(btnSelector); let originalText = btnElement.textContent;
-    btnElement.disabled = true; btnElement.textContent = `⏳ Sending...`; btnElement.style.opacity = "0.6";
-    fetch(`${SERVER_URL}/api/send_alert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, alert: type }) })
-    .then(response => { if (!response.ok) throw new Error("Failure"); return response.json(); })
-    .then(data => { addLogEntry(`> Alert sent to ${type}. Delivered.`, 'check'); alertStateMachine = 1; btnElement.disabled = false; btnElement.textContent = originalText; btnElement.style.opacity = "1"; })
-    .catch(error => { alert(`❌ NETWORK ERROR: Alert failed!`); addLogEntry(`❌ FAILED: Alert to ${type} failed!`, 'check'); btnElement.disabled = false; btnElement.textContent = `❌ Retry ${type}`; btnElement.style.opacity = "1"; });
+    let btnSelector = btnClassMap[type];
+    let btnElement = document.querySelector(btnSelector);
+    let originalText = btnElement.textContent;
+
+    btnElement.disabled = true;
+    btnElement.textContent = `⏳ Sending...`;
+    btnElement.style.opacity = "0.6";
+
+    fetch(`${SERVER_URL}/api/send_alert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ station_id: stationId, alert: type, note: note }) // 👈 Στέλνει και το note
+    })
+    .then(response => {
+        if (!response.ok) throw new Error("Failure");
+        return response.json();
+    })
+    .then(data => {
+        addLogEntry(`> Alert sent to ${type}. Delivered.`, 'check');
+        alertStateMachine = 1; 
+        btnElement.disabled = false;
+        btnElement.textContent = originalText;
+        btnElement.style.opacity = "1";
+    })
+    .catch(error => {
+        alert(`❌ NETWORK ERROR: Alert failed!`);
+        addLogEntry(`❌ FAILED: Alert to ${type} failed!`, 'check');
+        btnElement.disabled = false;
+        btnElement.textContent = `❌ Retry ${type}`;
+        btnElement.style.opacity = "1";
+    });
 }
 
 function triggerSupervisorMessage(msgText) { document.getElementById('msgOverlay').style.display = 'flex'; document.getElementById('msgOverlayText').textContent = msgText; radioWasPlayingBeforeMsg = !radioAudio.paused; stopRadio(); let ttsText = `Message from Supervisor. ${msgText}.`; speakText(ttsText); activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000); }
