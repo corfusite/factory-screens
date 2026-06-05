@@ -131,13 +131,19 @@
         err.textContent = "";
         if(u === "" || p === "") { err.textContent = "Please fill in all fields."; return; }
 
+        // 🔥 ΔΙΚΛΕΙΔΑ ΑΣΦΑΛΕΙΑΣ: Αν το username είναι "worker", τον πετάει έξω αμέσως!
+        if (u === "worker") { 
+            err.textContent = "❌ ACCESS DENIED: Worker accounts cannot access Supervisor Panel."; 
+            return; 
+        }
+
         fetch(`${SERVER_URL}/api/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: u, password: p })
         })
         .then(res => { if(!res.ok) throw new Error(); return res.json(); })
         .then(data => {
-            sessionStorage.setItem('supervisor_logged_in', 'true'); // 👈 Προσωρινή έγκριση συνεδρίας
+            sessionStorage.setItem('supervisor_logged_in', 'true');
             window.location.href = 'SupervisorPanel.html';
         })
         .catch(error => { err.textContent = "❌ Invalid Supervisor Credentials!"; });
