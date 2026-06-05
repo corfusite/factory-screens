@@ -1,6 +1,12 @@
 /* =========================================
-   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - WITH LOCAL CACHING
+   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - WITH SECURITY LOCK
 ========================================= */
+
+// 🔥 ΑΣΦΑΛΕΙΑ: ΕΛΕΓΧΟΣ ΑΝ ΤΟ TABLET ΕΧΕΙ ΕΞΟΥΣΙΟΔΟΤΗΘΕΙ ΑΠΟ ΤΟ PORTAL 🔥
+if (localStorage.getItem('worker_logged_in') !== 'true') {
+    alert("🔒 ACCESS DENIED: This tablet is not authorized. Redirecting to Portal...");
+    window.location.href = 'index.html';
+}
 
 // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
 const SERVER_URL = "https://my-factory-server.onrender.com";
@@ -40,7 +46,6 @@ const radioAudio = document.getElementById('radioAudio'), radioBtn = document.ge
 const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
 const logList = document.getElementById('logList');
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΗ: Αποθηκεύει τη γραμμή στην τοπική μνήμη της συσκευής 🔥
 function updateLocalStationId() {
     stationId = document.getElementById('setupStationId').value;
     localStorage.setItem('my_dedicated_station_id', stationId);
@@ -303,12 +308,7 @@ async function loadRadioStations() {
         const response = await fetch('https://de1.api.radio-browser.info/json/stations/search?country=United%20Kingdom&limit=150&order=clickcount&reverse=true&https_only=true');
         const stations = await response.json(); stationSelector.innerHTML = "<option value=''>-- Select UK Station --</option>";
         stations.forEach(station => { if (station.url_resolved && station.name.trim() !== "") { let opt = document.createElement('option'); opt.value = station.url_resolved; opt.textContent = station.name.trim(); stationSelector.appendChild(opt); } });
-        
-        // 🔥 ΑΝΑΒΑΘΜΙΣΗ: Φορτώνει αυτόματα το τελευταίο ραδιόφωνο που άκουγαν 🔥
-        let savedRadio = localStorage.getItem('my_last_radio_url');
-        if (savedRadio && [...stationSelector.options].some(o => o.value === savedRadio)) {
-            stationSelector.value = savedRadio;
-        }
+        let savedRadio = localStorage.getItem('my_last_radio_url'); if (savedRadio && [...stationSelector.options].some(o => o.value === savedRadio)) { stationSelector.value = savedRadio; }
     } catch (error) {}
 }
 
@@ -318,23 +318,12 @@ function loadAvailableVoices() {
     if (voices.length === 0) { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; let opt = document.createElement('option'); opt.value = ""; opt.textContent = "Beep Active (No Voice)"; voiceSelector.appendChild(opt); return; }
     hasEnglishVoice = true; voiceIndicator.style.backgroundColor = "#a6e3a1";
     voices.forEach(v => { let opt = document.createElement('option'); opt.value = v.name; opt.textContent = `${v.name} (${v.lang})`; voiceSelector.appendChild(opt); });
-    let savedVoice = localStorage.getItem('selected_work_voice');
-    if (savedVoice && voices.some(v => v.name === savedVoice)) { voiceSelector.value = savedVoice; } 
-    else { let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK')); if (ukVoice) voiceSelector.value = ukVoice.name; }
+    let savedVoice = localStorage.getItem('selected_work_voice'); if (savedVoice && voices.some(v => v.name === savedVoice)) { voiceSelector.value = savedVoice; } else { let ukVoice = voices.find(v => v.lang === 'en-GB' || v.name.includes('UK')); if (ukVoice) voiceSelector.value = ukVoice.name; }
 }
 
 function onVoiceChange() { localStorage.setItem('selected_work_voice', voiceSelector.value); if ('speechSynthesis' in window) { speakText("Voice test confirmed."); } }
 function toggleRadio() { if (!radioAudio.paused) { stopRadio(); } else { startRadio(); } }
-
-// 🔥 ΑΝΑΒΑΘΜΙΣΗ: Μόλις πατήσει Play, αποθηκεύει το σταθμό στη μνήμη 🔥
-function startRadio() { 
-    let url = stationSelector.value; 
-    if (url) { 
-        radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; 
-        localStorage.setItem('my_last_radio_url', url); // 👈 Αποθήκευση σταθμού
-    } 
-}
-
+function startRadio() { let url = stationSelector.value; if (url) { radioAudio.src = url; radioAudio.play().catch(e => console.log(e)); radioBtn.textContent = "Stop"; radioBtn.style.backgroundColor = "#f38ba8"; localStorage.setItem('my_last_radio_url', url); } }
 function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
 function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
 function formatTime(seconds, showHours = false) { if (isNaN(seconds) || seconds < 0) { seconds = 0; } let hrs = Math.floor(seconds / 3600), mins = Math.floor((seconds % 3600) / 60), secs = seconds % 60; let res = ""; if (showHours) res += (hrs < 10 ? "0" + hrs : hrs) + ":"; res += (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs); return res; }
@@ -348,19 +337,11 @@ function toggleTimers() {
 function playDigitalBeep() { try { let audioCtx = new (window.AudioContext || window.webkitAudioContext)(); let oscillator = audioCtx.createOscillator(); let gainNode = audioCtx.createGain(); oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); oscillator.start(); gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3); oscillator.stop(audioCtx.currentTime + 0.3); } catch (e) { console.log(e); } }
 function triggerAlertSound() { if (!isAlarmActive) return; if (hasEnglishVoice && voiceSelector.value) { speakText(alarmMessage); } else { playDigitalBeep(); setTimeout(playDigitalBeep, 400); setTimeout(playDigitalBeep, 800); } }
 function buildAlarmMessage(t1, t2) { if (t1 && t2) alarmMessage = "Please check product and log hourly production."; else if (t1) alarmMessage = "Please check product."; else if (t2) alarmMessage = "Please log hourly production."; }
-  function triggerAlarm(t1, t2) { isAlarmActive = true; dismissBtn.style.display = 'block'; wasRadioPlayingBeforeAlarm = !radioAudio.paused; stopRadio(); buildAlarmMessage(t1, t2); triggerAlertSound(); alarmInterval = setInterval(triggerAlertSound, 4000); }
+function triggerAlarm(t1, t2) { isAlarmActive = true; dismissBtn.style.display = 'block'; wasRadioPlayingBeforeAlarm = !radioAudio.paused; stopRadio(); buildAlarmMessage(t1, t2); triggerAlertSound(); alarmInterval = setInterval(triggerAlertSound, 4000); }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && isAlarmActive) { triggerAlertSound(); } });
 function dismissAlarm() { let now = Date.now(); let t1Triggered = (timer1Remaining === 0); let t2Triggered = (timer2Remaining === 0); if (t1Triggered && t2Triggered) { addLogEntry("✓ Product Check & Hourly Production Completed", "check"); } else if (t1Triggered) { addLogEntry("✓ Product Check Completed", "check"); } else if (t2Triggered) { addLogEntry("✓ Hourly Production Log Completed", "check"); } if (t1Triggered) { timer1Remaining = TIME_30_MIN; timer1EndTime = now + (TIME_30_MIN * 1000); } if (t2Triggered) { timer2Remaining = TIME_1_HOUR; timer2EndTime = now + (TIME_1_HOUR * 1000); } updateDisplays(); saveActiveJobState(); isAlarmActive = false; clearInterval(alarmInterval); window.speechSynthesis.cancel(); dismissBtn.style.display = 'none'; if (wasRadioPlayingBeforeAlarm) { startRadio(); wasRadioPlayingBeforeAlarm = false; } }
 
 function addLogEntry(text, typeClass) { if (logList.children.length === 1 && logList.children[0].style.fontStyle === 'italic') logList.innerHTML = ""; let now = new Date(); let stamp = `[${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}]`; savedLogsArray.push({ stamp: stamp, text: text, type: typeClass }); let li = document.createElement('li'); li.className = `log-item ${typeClass}`; li.innerHTML = `<span style="color:#6c7086">${stamp}</span> <span>${text}</span>`; logList.insertBefore(li, logList.firstChild); }
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΗ: Μόλις ανοίξει η σελίδα, φορτώνει αυτόματα τη Γραμμή που ήταν αποθηκευμένη σε αυτό το Tablet 🔥
-let savedStation = localStorage.getItem('my_dedicated_station_id');
-if (savedStation) {
-    stationId = savedStation;
-    document.getElementById('setupStationId').value = savedStation;
-}
-
-refreshSavedJobsUI();
-loadRadioStations(); 
-if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
+let savedStation = localStorage.getItem('my_dedicated_station_id'); if (savedStation) { stationId = savedStation; document.getElementById('setupStationId').value = savedStation; }
+refreshSavedJobsUI(); loadRadioStations(); if ('speechSynthesis' in window) { loadAvailableVoices(); window.speechSynthesis.onvoiceschanged = loadAvailableVoices; } else { hasEnglishVoice = false; voiceIndicator.style.backgroundColor = "#f38ba8"; }
