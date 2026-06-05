@@ -290,8 +290,8 @@ setInterval(pollSupervisorTarget, 4000); pollSupervisorTarget();
 function sendHelpAlert(type) {
     if (!stationId) return;
 
-    // 👈 ΝΕΟ: Παράθυρο για προαιρετικό γραπτό μήνυμα
-    let note = prompt(`✍️ Προαιρετικό σημείωμα για τον ${type}\n(π.χ. Διαρροή, Μπλοκάρισμα ταινίας, Σκίσιμο σακούλας):`) || "";
+    // 🔴 ΔΙΟΡΘΩΘΗΚΕ: Σύντομο, στα αγγλικά, χωρίς άσχετα παραδείγματα
+    let note = prompt(`Enter a brief note for ${type} (optional):`) || "";
 
     let btnClassMap = { "Supervisor": ".call-supervisor", "QA": ".call-qa", "Engineer": ".call-eng" };
     let btnSelector = btnClassMap[type];
