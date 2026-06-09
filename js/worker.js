@@ -1,14 +1,12 @@
 /* =========================================
-   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - WITH SECURITY LOCK
+   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - FINAL
 ========================================= */
 
-// 🔥 ΑΣΦΑΛΕΙΑ: ΕΛΕΓΧΟΣ ΑΝ ΤΟ TABLET ΕΧΕΙ ΕΞΟΥΣΙΟΔΟΤΗΘΕΙ ΑΠΟ ΤΟ PORTAL 🔥
 if (localStorage.getItem('worker_logged_in') !== 'true') {
     alert("🔒 ACCESS DENIED: This tablet is not authorized. Redirecting to Portal...");
     window.location.href = 'index.html';
 }
 
-// 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
 const SERVER_URL = "https://my-factory-server.onrender.com";
 
 const STATION_NAMES = {
@@ -16,19 +14,12 @@ const STATION_NAMES = {
     "4": "Line 4", "5": "Pouch", "6": "Powder Room"
 };
 
-let activeJobId = null;
-let jobsDatabase = {};
-
+let activeJobId = null; let jobsDatabase = {};
 let allStationsGlobalData = JSON.parse(localStorage.getItem('all_stations_global_db')) || {};
 let globalData = { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
 
-let stationId = "1";
-let globalShiftTarget = 0; 
-let localMessageRead = true; 
-let activeMessageInterval = null;
-let radioWasPlayingBeforeMsg = false;
-let alertStateMachine = 0; 
-
+let stationId = "1"; let globalShiftTarget = 0; let localMessageRead = true; let activeMessageInterval = null;
+let radioWasPlayingBeforeMsg = false; let alertStateMachine = 0; 
 let batchSize, prodPerBox, boxesPerLayer, layersPerPallet, startingProducts;
 let productsPerPallet, totalPalletsNeeded, initialJobBoxesLock = 0;
 
@@ -46,17 +37,8 @@ const radioAudio = document.getElementById('radioAudio'), radioBtn = document.ge
 const stationSelector = document.getElementById('stationSelector'), voiceSelector = document.getElementById('voiceSelector'), voiceIndicator = document.getElementById('voiceIndicator');
 const logList = document.getElementById('logList');
 
-function updateLocalStationId() {
-    stationId = document.getElementById('setupStationId').value;
-    localStorage.setItem('my_dedicated_station_id', stationId);
-}
-
-function getCurrentShift() {
-    let hour = new Date().getHours();
-    if (hour >= 6 && hour < 14) return "Morning Shift";
-    if (hour >= 14 && hour < 22) return "Afternoon Shift";
-    return "Night Shift";
-}
+function updateLocalStationId() { stationId = document.getElementById('setupStationId').value; localStorage.setItem('my_dedicated_station_id', stationId); }
+function getCurrentShift() { let hour = new Date().getHours(); if (hour >= 6 && hour < 14) return "Morning Shift"; if (hour >= 14 && hour < 22) return "Afternoon Shift"; return "Night Shift"; }
 
 function sendSyncToServer(isOffline = false) {
     if (!SERVER_URL || !SERVER_URL.includes("http")) return;
@@ -67,124 +49,90 @@ function sendSyncToServer(isOffline = false) {
     let currentJobTotal = (activeJobId && jobsDatabase[activeJobId]) ? (jobsDatabase[activeJobId].lastSyncedTotal || 0) : 0;
 
     if (isOffline || !activeJobId) {
-        fetch(`${SERVER_URL}/api/update_station`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, status: "Offline", batch_number: bNum, job_total: 0, job_pallets: 0, shift_total: globalData.shiftTotal, shift_pallets: totalShiftPallets })
-        }).catch(e => {}); return;
+        fetch(`${SERVER_URL}/api/update_station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, status: "Offline", batch_number: bNum, job_total: 0, job_pallets: 0, shift_total: globalData.shiftTotal, shift_pallets: totalShiftPallets }) }).catch(e => {}); return;
     }
-    fetch(`${SERVER_URL}/api/update_station`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ station_id: stationId, status: "Online", batch_number: bNum, job_total: currentJobTotal, job_pallets: currentJobPallets, shift_total: globalData.shiftTotal, shift_pallets: totalShiftPallets })
-    }).catch(e => {});
+    fetch(`${SERVER_URL}/api/update_station`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, status: "Online", batch_number: bNum, job_total: currentJobTotal, job_pallets: currentJobPallets, shift_total: globalData.shiftTotal, shift_pallets: totalShiftPallets }) }).catch(e => {});
 }
 
 function refreshSavedJobsUI() {
-    const listDiv = document.getElementById('savedJobsList');
-    let stored = localStorage.getItem('dashboard_production_jobs_db');
-    jobsDatabase = stored ? JSON.parse(stored) : {};
-    let keys = Object.keys(jobsDatabase);
+    const listDiv = document.getElementById('savedJobsList'); let stored = localStorage.getItem('dashboard_production_jobs_db'); jobsDatabase = stored ? JSON.parse(stored) : {}; let keys = Object.keys(jobsDatabase);
     if (keys.length === 0) { listDiv.innerHTML = `<div style="color: #6c7086; font-style: italic; text-align: center; padding: 10px;">No saved jobs found. Create one below.</div>`; return; }
     listDiv.innerHTML = "";
     keys.forEach(id => {
-        let job = jobsDatabase[id]; let row = document.createElement('div'); row.className = 'job-item-row';
-        let sName = STATION_NAMES[job.stationId] || "Unknown";
-        row.innerHTML = `<div class="job-info-text" onclick="loadSelectedJob('${id}')">💼 [${sName}] Batch: ${job.batchNumber} | Target: ${job.batchSize.toLocaleString()} Pcs (Created: ${job.createdTime || 'Unknown'})</div><button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>`;
+        let job = jobsDatabase[id]; let row = document.createElement('div'); row.className = 'job-item-row'; let sName = STATION_NAMES[job.stationId] || "Unknown";
+        row.innerHTML = `<div class="job-info-text" onclick="loadSelectedJob('${id}')">💼 [${sName}] Batch: ${job.batchNumber} | Target: ${job.batchSize.toLocaleString()} Pcs</div><button class="btn-danger" onclick="deleteJobFromDatabase('${id}', event)">Delete</button>`;
         listDiv.appendChild(row);
     });
 }
 
 async function createNewJobConfiguration() {
-    let bNumInput = document.getElementById('setupBatchNumber').value.trim();
-    let bSzInput = document.getElementById('setupBatchSize').value;
-    let pBxInput = document.getElementById('setupProdPerBox').value;
-    let bLyInput = document.getElementById('setupBoxesPerLayer').value;
-    let lPlInput = document.getElementById('setupLayersPerPallet').value;
-
+    let bNumInput = document.getElementById('setupBatchNumber').value.trim(); let bSzInput = document.getElementById('setupBatchSize').value; let pBxInput = document.getElementById('setupProdPerBox').value; let bLyInput = document.getElementById('setupBoxesPerLayer').value; let lPlInput = document.getElementById('setupLayersPerPallet').value;
     if (bNumInput === "") { alert("⚠️ ERROR: Please enter the Batch Number!"); return; }
     if (!bSzInput || parseInt(bSzInput) <= 0) { alert("⚠️ ERROR: Invalid Batch Size!"); return; }
-    let stId = document.getElementById('setupStationId').value;
-    let sName = STATION_NAMES[stId] || "Unknown";
+    let stId = document.getElementById('setupStationId').value; let sName = STATION_NAMES[stId] || "Unknown";
 
+    // 🔴 ΔΙΟΡΘΩΘΗΚΕ: FORCE OVERRIDE ΑΝΤΙ ΓΙΑ ACCESS DENIED
     if (SERVER_URL && SERVER_URL.includes("http")) {
         try {
-            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
-            const serverData = await res.json();
-            if (serverData[stId] && serverData[stId].status === "Online") { alert(`⛔ ACCESS DENIED: ${sName} is already ONLINE!`); return; }
+            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`); const serverData = await res.json();
+            if (serverData[stId] && serverData[stId].status === "Online") {
+                let override = confirm(`⚠️ STATION BUSY: ${sName} is already ONLINE running Batch: ${serverData[stId].batch_number}.\n\nDo you want to FORCE OVERRIDE and take over this station?`);
+                if (!override) return; 
+            }
         } catch(e) {}
     }
 
-    let id = 'job_' + Date.now(); let now = new Date();
-    let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
-    stationId = stId; let bNum = bNumInput; let bSz = parseInt(bSzInput); let pBx = parseInt(pBxInput); let bLy = parseInt(bLyInput); let lPl = parseInt(lPlInput);
-    let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
+    let id = 'job_' + Date.now(); let now = new Date(); let timestamp = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')} - ${now.toLocaleDateString()}`;
+    stationId = stId; let bNum = bNumInput; let bSz = parseInt(bSzInput); let pBx = parseInt(pBxInput); let bLy = parseInt(bLyInput); let lPl = parseInt(lPlInput); let sPr = Math.max(0, parseInt(document.getElementById('setupStartingProd').value) || 0);
     let customStr = document.getElementById('setupCustomPallets').value; let customPos = document.getElementById('setupCustomPos').value; let customArr = [];
     if (customStr.trim() !== "") { customArr = customStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0); }
     let initialBoxes = sPr > 0 ? Math.floor(sPr / pBx) : 0; let initialLoose = sPr > 0 ? sPr % pBx : 0; let initialTotal = (initialBoxes * pBx) + initialLoose;
 
-    jobsDatabase[id] = { id: id, createdTime: timestamp, stationId: stId, batchNumber: bNum, batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr, customPallets: customArr, customPos: customPos, previousTotalProducts: initialTotal, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose, currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose, initialJobBoxesLock: initialBoxes, lastSyncedTotal: initialTotal, timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName} (${getCurrentShift()}).`, type: `check` }] };
+    jobsDatabase[id] = { id: id, createdTime: timestamp, stationId: stId, batchNumber: bNum, batchSize: bSz, prodPerBox: pBx, boxesPerLayer: bLy, layersPerPallet: lPl, startingProducts: sPr, customPallets: customArr, customPos: customPos, previousTotalProducts: initialTotal, lastCalculatedBoxes: initialBoxes, lastCalculatedLoose: initialLoose, currentBoxesVal: initialBoxes > 0 ? initialBoxes : "", currentLooseVal: initialLoose, initialJobBoxesLock: initialBoxes, lastSyncedTotal: initialTotal, timer1State: TIME_30_MIN, timer2State: TIME_1_HOUR, logs: [{ stamp: `[${timestamp.split(' - ')[0]}]`, text: `New Job Created on ${sName}.`, type: `check` }] };
     document.getElementById('setupBatchNumber').value = ""; document.getElementById('setupCustomPallets').value = ""; saveDatabaseToStorage(); loadSelectedJob(id);
 }
 
 function updateJobProgressUI(currentTotalProducts) {
     if (!batchSize || batchSize <= 0) return;
     let percentage = (currentTotalProducts / batchSize) * 100; let difference = currentTotalProducts - batchSize;
-    let pctEl = document.getElementById('ui-progress-pct'); let diffEl = document.getElementById('ui-progress-diff');
-    if (!pctEl || !diffEl) return;
+    let pctEl = document.getElementById('ui-progress-pct'); let diffEl = document.getElementById('ui-progress-diff'); if (!pctEl || !diffEl) return;
     pctEl.textContent = percentage.toFixed(1) + "%";
-    if (difference < 0) { diffEl.textContent = difference; diffEl.style.color = "#f38ba8"; pctEl.style.color = "#f38ba8"; } 
-    else { diffEl.textContent = "+" + difference; diffEl.style.color = "#a6e3a1"; pctEl.style.color = "#a6e3a1"; }
+    if (difference < 0) { diffEl.textContent = difference; diffEl.style.color = "#f38ba8"; pctEl.style.color = "#f38ba8"; } else { diffEl.textContent = "+" + difference; diffEl.style.color = "#a6e3a1"; pctEl.style.color = "#a6e3a1"; }
 }
 
 function loadSelectedJob(id) {
-    activeJobId = id; let job = jobsDatabase[id]; stationId = job.stationId || "1";
-    globalData = allStationsGlobalData[stationId] || { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
-    document.getElementById('setupStationId').value = stationId; 
-    document.getElementById('activeStationDisplay').textContent = `${STATION_NAMES[stationId]} | ${getCurrentShift()}`;
-    document.getElementById('specBatchNumber').textContent = job.batchNumber || "-";
-    batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer; layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts;
-    previousTotalProducts = job.previousTotalProducts || 0; lastCalculatedBoxes = job.lastCalculatedBoxes; lastCalculatedLoose = job.lastCalculatedLoose; initialJobBoxesLock = job.initialJobBoxesLock || 0; savedLogsArray = [...job.logs];
+    activeJobId = id; let job = jobsDatabase[id]; stationId = job.stationId || "1"; globalData = allStationsGlobalData[stationId] || { shiftTotal: 0, chartLabels: [], chartData: [], hourCounter: 0 };
+    document.getElementById('setupStationId').value = stationId; document.getElementById('activeStationDisplay').textContent = `${STATION_NAMES[stationId]} | ${getCurrentShift()}`; document.getElementById('specBatchNumber').textContent = job.batchNumber || "-";
+    batchSize = job.batchSize; prodPerBox = job.prodPerBox; boxesPerLayer = job.boxesPerLayer; layersPerPallet = job.layersPerPallet; startingProducts = job.startingProducts; previousTotalProducts = job.previousTotalProducts || 0; lastCalculatedBoxes = job.lastCalculatedBoxes; lastCalculatedLoose = job.lastCalculatedLoose; initialJobBoxesLock = job.initialJobBoxesLock || 0; savedLogsArray = [...job.logs];
     productsPerPallet = boxesPerLayer * layersPerPallet * prodPerBox;
-    let customArr = job.customPallets || []; let customPos = job.customPos || "end"; let sumCustom = customArr.reduce((a, b) => a + b, 0); let standardPcs = Math.max(0, batchSize - sumCustom);
-    let sequence = [];
+    let customArr = job.customPallets || []; let customPos = job.customPos || "end"; let sumCustom = customArr.reduce((a, b) => a + b, 0); let standardPcs = Math.max(0, batchSize - sumCustom); let sequence = [];
     while (standardPcs > 0) { if (standardPcs >= productsPerPallet) { sequence.push(productsPerPallet); standardPcs -= productsPerPallet; } else { sequence.push(standardPcs); standardPcs = 0; } }
     if (customPos === "start") job.palletSequence = customArr.concat(sequence); else job.palletSequence = sequence.concat(customArr);
-    let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet;
-    let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2); let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
-
+    let standardDecimalPallets = Math.max(0, batchSize - sumCustom) / productsPerPallet; let exactPallets = (customArr.length + standardDecimalPallets).toFixed(2); let exactBoxes = (batchSize / prodPerBox).toFixed(1).replace('.0', '');
     document.getElementById('specBatchSize').textContent = batchSize.toLocaleString(); document.getElementById('specProdPerBox').textContent = prodPerBox; document.getElementById('specBoxesPerLayer').textContent = boxesPerLayer; document.getElementById('specLayersPerPallet').textContent = layersPerPallet; document.getElementById('specUnitsPerPallet').textContent = productsPerPallet.toLocaleString(); document.getElementById('specStartingProd').textContent = startingProducts.toLocaleString();
-    document.getElementById('currentBoxes').value = job.currentBoxesVal; document.getElementById('currentLoose').value = job.currentLooseVal;
-    document.getElementById('resTargetPallets').textContent = `${exactPallets} Plts | ${exactBoxes} Bxs | ${batchSize.toLocaleString()} Pcs`;
-    document.getElementById('resPrevTotal').textContent = previousTotalProducts;
-    let initialCalculatedTotal = job.lastSyncedTotal || 0; document.getElementById('resNewTotal').textContent = initialCalculatedTotal;
-    document.getElementById('resDifference').textContent = "0"; document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
-
+    document.getElementById('currentBoxes').value = job.currentBoxesVal; document.getElementById('currentLoose').value = job.currentLooseVal; document.getElementById('resTargetPallets').textContent = `${exactPallets} Plts | ${exactBoxes} Bxs | ${batchSize.toLocaleString()} Pcs`; document.getElementById('resPrevTotal').textContent = previousTotalProducts;
+    let initialCalculatedTotal = job.lastSyncedTotal || 0; document.getElementById('resNewTotal').textContent = initialCalculatedTotal; document.getElementById('resDifference').textContent = "0"; document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
     document.getElementById('setupScreen').style.display = 'none'; document.getElementById('mainDashboard').style.display = 'block';
     initChart(); updatePalletFills(initialCalculatedTotal); updateJobProgressUI(initialCalculatedTotal); updateShiftGoalUI(globalData.shiftTotal);
     logList.innerHTML = "";
     savedLogsArray.forEach(logItem => {
         let li = document.createElement('li');
-        if (typeof logItem === 'string') { li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`; } 
-        else { li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`; }
+        if (typeof logItem === 'string') { li.className = "log-item"; li.innerHTML = `<span style="color:#6c7086">${logItem.substring(0,10)}</span><span>${logItem.substring(10)}</span>`; } else { li.className = `log-item ${logItem.type}`; li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`; }
         logList.insertBefore(li, logList.firstChild);
     });
-    timer1Remaining = job.timer1State !== undefined ? job.timer1State : TIME_30_MIN; timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR;
-    isRunning = false; updateDisplays(); startPauseBtn.textContent = "Start Timers"; startPauseBtn.className = "btn-main";
+    timer1Remaining = job.timer1State !== undefined ? job.timer1State : TIME_30_MIN; timer2Remaining = job.timer2State !== undefined ? job.timer2State : TIME_1_HOUR; isRunning = false; updateDisplays(); startPauseBtn.textContent = "Start Timers";
     sendSyncToServer(false);
 }
 
 function saveActiveJobState() {
     if (!activeJobId || !jobsDatabase[activeJobId]) return;
     let curB = document.getElementById('currentBoxes').value; let curL = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
-    jobsDatabase[activeJobId].previousTotalProducts = previousTotalProducts; jobsDatabase[activeJobId].lastCalculatedBoxes = lastCalculatedBoxes; jobsDatabase[activeJobId].lastCalculatedLoose = lastCalculatedLoose;
-    jobsDatabase[activeJobId].currentBoxesVal = curB; jobsDatabase[activeJobId].currentLooseVal = curL; jobsDatabase[activeJobId].logs = [...savedLogsArray];
-    let t1 = timer1Remaining, t2 = timer2Remaining;
-    if (isRunning) { let now = Date.now(); t1 = Math.max(0, Math.ceil((timer1EndTime - now) / 1000)); t2 = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); }
-    jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2;
-    saveDatabaseToStorage(); allStationsGlobalData[stationId] = globalData; localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
+    jobsDatabase[activeJobId].previousTotalProducts = previousTotalProducts; jobsDatabase[activeJobId].lastCalculatedBoxes = lastCalculatedBoxes; jobsDatabase[activeJobId].lastCalculatedLoose = lastCalculatedLoose; jobsDatabase[activeJobId].currentBoxesVal = curB; jobsDatabase[activeJobId].currentLooseVal = curL; jobsDatabase[activeJobId].logs = [...savedLogsArray];
+    let t1 = timer1Remaining, t2 = timer2Remaining; if (isRunning) { let now = Date.now(); t1 = Math.max(0, Math.ceil((timer1EndTime - now) / 1000)); t2 = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); }
+    jobsDatabase[activeJobId].timer1State = t1; jobsDatabase[activeJobId].timer2State = t2; saveDatabaseToStorage(); allStationsGlobalData[stationId] = globalData; localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData));
 }
 
 function saveDatabaseToStorage() { localStorage.setItem('dashboard_production_jobs_db', JSON.stringify(jobsDatabase)); }
-
 function deleteJobFromDatabase(id, event) { event.stopPropagation(); if (confirm("Are you sure?")) { if (activeJobId === id) { exitToJobList(); } delete jobsDatabase[id]; saveDatabaseToStorage(); refreshSavedJobsUI(); } }
 
 function exitToJobList() {
@@ -198,12 +146,11 @@ function finishJobAndReport() {
     if(!confirm("Are you sure you want to Finish?")) return;
     let job = jobsDatabase[activeJobId]; let hpElement = document.getElementById('hiddenPalletsCount');
     let reportData = { station_name: STATION_NAMES[job.stationId], batch_number: job.batchNumber, batch_target: job.batchSize, total_produced: job.lastSyncedTotal, completed_pallets: hpElement ? parseInt(hpElement.textContent) || 0 : 0, prod_per_box: job.prodPerBox, boxes_per_layer: job.boxesPerLayer, layers_per_pallet: job.layersPerPallet, starting_products: job.startingProducts, hourly_labels: globalData.chartLabels, hourly_data: globalData.chartData, logs: job.logs };
-
     if (SERVER_URL && SERVER_URL.includes("http")) {
         fetch(`${SERVER_URL}/api/save_report`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(reportData) })
         .then(response => { if (!response.ok) throw new Error("Failed"); return response.json(); })
         .then(() => { delete jobsDatabase[activeJobId]; saveDatabaseToStorage(); exitToJobList(); alert("✅ Report Saved!"); })
-        .catch(e => alert("❌ Database Error. Saved locally on tablet. Try again."));
+        .catch(e => alert("❌ Database Error. Saved locally. Try again."));
     }
 }
 
@@ -225,11 +172,7 @@ function updateShiftGoalUI(currentShiftProducts) {
     const bar = document.getElementById('shiftProgressBar'); bar.style.width = `${pct}%`; bar.textContent = `${pct}%`; bar.style.backgroundColor = pct >= 100 ? "#a6e3a1" : "#89b4fa";
 }
 
-function initChart() {
-    const ctx = document.getElementById('hourlyChart').getContext('2d'); if(chartInstance) chartInstance.destroy();
-    chartInstance = new Chart(ctx, { type: 'bar', data: { labels: globalData.chartLabels, datasets: [{ label: 'Hourly Units', data: globalData.chartData, backgroundColor: '#fab387', borderColor: '#fab387', borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: '#313244' }, ticks: { color: '#cdd6f4' } }, x: { grid: { display: false }, ticks: { color: '#cdd6f4' } } }, plugins: { legend: { display: false } } } });
-}
-
+function initChart() { const ctx = document.getElementById('hourlyChart').getContext('2d'); if(chartInstance) chartInstance.destroy(); chartInstance = new Chart(ctx, { type: 'bar', data: { labels: globalData.chartLabels, datasets: [{ label: 'Hourly Units', data: globalData.chartData, backgroundColor: '#fab387', borderColor: '#fab387', borderWidth: 1 }] }, options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, grid: { color: '#313244' }, ticks: { color: '#cdd6f4' } }, x: { grid: { display: false }, ticks: { color: '#cdd6f4' } } }, plugins: { legend: { display: false } } } }); }
 function checkBoxesChange() { let currentBoxesInput = document.getElementById('currentBoxes').value; if (currentBoxesInput === "") return; let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0); if (lastCalculatedBoxes !== null && currentBoxes > lastCalculatedBoxes) document.getElementById('currentLoose').value = "0"; }
 
 function updateLiveProgress() {
@@ -286,45 +229,16 @@ async function pollSupervisorTarget() {
 
 setInterval(pollSupervisorTarget, 4000); pollSupervisorTarget();
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΗ ΛΕΙΤΟΥΡΓΙΑ: ALERT ΜΕ ΠΡΟΑΙΡΕΤΙΚΟ ΠΛΗΚΤΡΟΛΟΓΙΟ 🔥
 function sendHelpAlert(type) {
     if (!stationId) return;
-
-    // 🔴 ΔΙΟΡΘΩΘΗΚΕ: Σύντομο, στα αγγλικά, χωρίς άσχετα παραδείγματα
     let note = prompt(`Enter a brief note for ${type} (optional):`) || "";
-
     let btnClassMap = { "Supervisor": ".call-supervisor", "QA": ".call-qa", "Engineer": ".call-eng" };
-    let btnSelector = btnClassMap[type];
-    let btnElement = document.querySelector(btnSelector);
-    let originalText = btnElement.textContent;
-
-    btnElement.disabled = true;
-    btnElement.textContent = `⏳ Sending...`;
-    btnElement.style.opacity = "0.6";
-
-    fetch(`${SERVER_URL}/api/send_alert`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ station_id: stationId, alert: type, note: note }) // 👈 Στέλνει και το note
-    })
-    .then(response => {
-        if (!response.ok) throw new Error("Failure");
-        return response.json();
-    })
-    .then(data => {
-        addLogEntry(`> Alert sent to ${type}. Delivered.`, 'check');
-        alertStateMachine = 1; 
-        btnElement.disabled = false;
-        btnElement.textContent = originalText;
-        btnElement.style.opacity = "1";
-    })
-    .catch(error => {
-        alert(`❌ NETWORK ERROR: Alert failed!`);
-        addLogEntry(`❌ FAILED: Alert to ${type} failed!`, 'check');
-        btnElement.disabled = false;
-        btnElement.textContent = `❌ Retry ${type}`;
-        btnElement.style.opacity = "1";
-    });
+    let btnSelector = btnClassMap[type]; let btnElement = document.querySelector(btnSelector); let originalText = btnElement.textContent;
+    btnElement.disabled = true; btnElement.textContent = `⏳ Sending...`; btnElement.style.opacity = "0.6";
+    fetch(`${SERVER_URL}/api/send_alert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, alert: type, note: note }) })
+    .then(response => { if (!response.ok) throw new Error("Failure"); return response.json(); })
+    .then(data => { addLogEntry(`> Alert sent to ${type}. Delivered.`, 'check'); alertStateMachine = 1; btnElement.disabled = false; btnElement.textContent = originalText; btnElement.style.opacity = "1"; })
+    .catch(error => { alert(`❌ NETWORK ERROR: Alert failed!`); btnElement.disabled = false; btnElement.textContent = `❌ Retry ${type}`; btnElement.style.opacity = "1"; });
 }
 
 function triggerSupervisorMessage(msgText) { document.getElementById('msgOverlay').style.display = 'flex'; document.getElementById('msgOverlayText').textContent = msgText; radioWasPlayingBeforeMsg = !radioAudio.paused; stopRadio(); let ttsText = `Message from Supervisor. ${msgText}.`; speakText(ttsText); activeMessageInterval = setInterval(() => { speakText(ttsText); }, 15000); }
