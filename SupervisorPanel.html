@@ -6,116 +6,84 @@
     <title>Supervisor Control Panel</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #1e1e2e; color: #cdd6f4; margin: 0; padding: 20px; }
-        
         .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #45475a; padding-bottom: 15px; margin-bottom: 20px; }
         .header h1 { color: #89b4fa; margin: 0; font-size: 2.2rem; }
         .header-controls { display: flex; gap: 15px; }
-        
         .btn-sound { background-color: #585b70; color: #cdd6f4; border: none; padding: 12px 20px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
         .btn-sound.active { background-color: #a6e3a1; color: #11111b; }
         .btn-danger { background-color: #f38ba8; color: #11111b; border: none; padding: 12px 20px; font-size: 1.1rem; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.2s; }
         .btn-danger:hover { background-color: #eba0ac; }
-
-        /* FACTORY TOTAL PROGRESS BAR */
         .factory-goal-container { background-color: #313244; padding: 15px 25px; border-radius: 15px; margin-bottom: 30px; border: 2px solid #45475a; box-shadow: 0 10px 20px rgba(0,0,0,0.4); }
         .factory-goal-title { display: flex; justify-content: space-between; font-size: 1.5rem; font-weight: 900; color: #b4befe; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 2px; }
         .factory-track { background: #11111b; height: 35px; border-radius: 10px; overflow: hidden; position: relative; border: 1px solid #6c7086; }
         .factory-fill { height: 100%; background: linear-gradient(90deg, #89b4fa, #cba6f7); width: 0%; transition: width 0.8s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 15px; box-sizing: border-box; font-size: 1.2rem; font-weight: 900; color: #11111b; }
-        .factory-fill.done { background: linear-gradient(90deg, #a6e3a1, #94e2d5); }
-
-        /* SECTION 1: ACTIVE JOBS (CARDS) */
         .section-title { color: #fab387; font-size: 1.5rem; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
         .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-        
         .station-card { background-color: #313244; border-radius: 15px; padding: 20px; border-top: 5px solid #6c7086; box-shadow: 0 10px 20px rgba(0,0,0,0.3); display: flex; flex-direction: column; gap: 15px; transition: border-color 0.3s; }
         .station-card.online { border-top-color: #a6e3a1; }
         .station-card.offline { border-top-color: #f38ba8; }
-        
         .card-header { display: flex; justify-content: space-between; align-items: center; }
         .card-header h2 { margin: 0; color: #fff; font-size: 1.8rem; }
         .status-badge { padding: 5px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; text-transform: uppercase; }
         .status-badge.online { background-color: rgba(166, 227, 161, 0.2); color: #a6e3a1; }
         .status-badge.offline { background-color: rgba(243, 139, 168, 0.2); color: #f38ba8; }
-
         .job-details { background-color: #1e1e2e; padding: 15px; border-radius: 10px; border: 1px solid #45475a; }
         .detail-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 1.1rem; }
         .detail-row:last-child { margin-bottom: 0; }
         .detail-label { color: #a6adc8; }
         .detail-value { font-family: monospace; font-weight: bold; font-size: 1.2rem; color: #b4befe; }
         .val-highlight { color: #a6e3a1; }
-
         .message-box { display: flex; gap: 10px; margin-top: auto; }
         .message-box input { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #45475a; background-color: #11111b; color: #fff; font-size: 1rem; }
         .message-box button { background-color: #89b4fa; color: #11111b; border: none; padding: 0 15px; font-weight: bold; border-radius: 8px; cursor: pointer; }
         .msg-status { font-size: 0.85rem; color: #f9e2af; font-style: italic; margin-top: 5px; min-height: 16px; }
-
-        /* ALERTS - COLOR CODED */
         .alert-box { display: none; padding: 12px; border-radius: 10px; text-align: center; margin-top: 10px; border: 2px solid transparent; }
         .alert-text { font-weight: 900; font-size: 1.2rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
         .alert-btn { color: #11111b; border: none; padding: 8px 20px; font-weight: bold; font-size: 1.1rem; border-radius: 6px; cursor: pointer; width: 100%; transition: transform 0.1s; }
         .alert-btn:active { transform: scale(0.95); }
-
         .alert-box.supervisor { background-color: rgba(243, 139, 168, 0.1); border-color: #f38ba8; animation: pulse-super 1s infinite alternate; }
         .alert-text.supervisor { color: #f38ba8; }
         .alert-btn.supervisor { background-color: #f38ba8; }
-
         .alert-box.qa { background-color: rgba(250, 179, 135, 0.1); border-color: #fab387; animation: pulse-qa 1s infinite alternate; }
         .alert-text.qa { color: #fab387; }
         .alert-btn.qa { background-color: #fab387; }
-
         .alert-box.engineer { background-color: rgba(137, 180, 250, 0.1); border-color: #89b4fa; animation: pulse-eng 1s infinite alternate; }
         .alert-text.engineer { color: #89b4fa; }
         .alert-btn.engineer { background-color: #89b4fa; }
-
         @keyframes pulse-super { 0% { transform: scale(1); box-shadow: 0 0 0 rgba(243, 139, 168, 0); } 100% { transform: scale(1.02); box-shadow: 0 0 15px rgba(243, 139, 168, 0.5); } }
         @keyframes pulse-qa { 0% { transform: scale(1); box-shadow: 0 0 0 rgba(250, 179, 135, 0); } 100% { transform: scale(1.02); box-shadow: 0 0 15px rgba(250, 179, 135, 0.5); } }
         @keyframes pulse-eng { 0% { transform: scale(1); box-shadow: 0 0 0 rgba(137, 180, 250, 0); } 100% { transform: scale(1.02); box-shadow: 0 0 15px rgba(137, 180, 250, 0.5); } }
-
-        /* SECTION 2: SHIFT TOTALS (TABLE) */
         .table-container { background-color: #313244; border-radius: 15px; padding: 20px; box-shadow: 0 10px 20px rgba(0,0,0,0.3); overflow-x: auto; }
         .shift-table { width: 100%; border-collapse: collapse; text-align: left; }
         .shift-table th { background-color: #1e1e2e; color: #89b4fa; padding: 15px; font-size: 1.1rem; border-bottom: 2px solid #45475a; }
         .shift-table td { padding: 15px; border-bottom: 1px solid #45475a; font-size: 1.2rem; }
         .shift-table tr:last-child td { border-bottom: none; }
         .shift-table tr:hover { background-color: #45475a; }
-        
         .tbl-station { font-weight: bold; color: #fff; }
         .tbl-batch { background-color: #11111b; padding: 4px 8px; border-radius: 5px; font-family: monospace; color: #b4befe; font-size: 1.1rem; }
         .tbl-num { font-family: monospace; font-weight: bold; font-size: 1.4rem; color: #cdd6f4; }
-        
         .target-control { display: flex; gap: 10px; }
         .target-control input { width: 100px; padding: 8px; border-radius: 6px; border: 1px solid #45475a; background-color: #11111b; color: #fff; font-family: monospace; font-size: 1.1rem; }
         .target-control button { background-color: #fab387; color: #11111b; border: none; padding: 0 15px; font-weight: bold; border-radius: 6px; cursor: pointer; }
-
         .progress-container { width: 100%; min-width: 150px; background-color: #11111b; border-radius: 10px; height: 25px; position: relative; overflow: hidden; border: 1px solid #45475a; }
         .progress-fill { height: 100%; background-color: #89b4fa; width: 0%; transition: width 0.5s ease-in-out; display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; box-sizing: border-box; font-size: 0.9rem; font-weight: bold; color: #11111b; }
-        .progress-fill.done { background-color: #a6e3a1; }
-
-        /* FLOATING CHAT WINDOW STYLES */
         .chat-window { position: fixed; bottom: 20px; right: 20px; width: 350px; height: 400px; background: #1e1e2e; border: 2px solid #45475a; border-radius: 15px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.6); z-index: 1000; transition: height 0.3s ease; overflow: hidden; }
         .chat-window.minimized { height: 45px; } 
-        
         .chat-top-bar { display: flex; justify-content: space-between; align-items: center; background: #11111b; padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #45475a;}
         .chat-top-title { color: #89b4fa; font-weight: bold; font-size: 1.1rem; display: flex; align-items: center; gap: 8px; flex: 1; }
-        
         .chat-action-btns { display: flex; gap: 15px; align-items: center; }
         .chat-clear-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; padding: 0; filter: grayscale(100%); transition: 0.2s; }
         .chat-clear-btn:hover { filter: grayscale(0%); transform: scale(1.1); }
         .chat-min-btn { background: none; border: none; color: #cdd6f4; font-weight: bold; font-size: 1.5rem; cursor: pointer; padding: 0; line-height: 1; margin-top: -8px; }
-        
         .chat-tabs { display: flex; background: #313244; }
         .tab-btn { flex: 1; padding: 12px; border: none; background: none; color: #a6adc8; cursor: pointer; font-weight: bold; font-size: 1rem; border-bottom: 2px solid transparent; transition: 0.2s;}
         .tab-btn.active { background: #45475a; color: #89b4fa; border-bottom: 2px solid #89b4fa; }
         .tab-btn.new-msg { color: #11111b; background-color: #fab387; border-bottom: 2px solid #fab387; animation: blink 1s infinite; }
-        
         .chat-content { flex: 1; overflow-y: auto; padding: 15px; font-size: 0.95rem; color: #cdd6f4; display: flex; flex-direction: column; gap: 10px; }
-        
-        /* ΝΕΟ: Εμφάνιση του Input field */
         .chat-input-area { display: flex; gap: 8px; padding: 10px; background: #181825; border-top: 1px solid #45475a; }
         .chat-input-area input { flex: 1; padding: 8px 10px; border-radius: 6px; border: 1px solid #45475a; background-color: #11111b; color: #fff; font-size: 0.9rem; }
         .chat-input-area button { background-color: #89b4fa; color: #11111b; border: none; padding: 0 15px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.2s; }
         .chat-input-area button:hover { background-color: #74c7ec; }
-
         @keyframes blink { 50% { opacity: 0.7; } }
         .chat-msg { background-color: #313244; padding: 10px; border-radius: 8px; border-left: 4px solid #89b4fa; }
     </style>
@@ -161,15 +129,12 @@
     </div>
 
     <div style="text-align: center; margin-top: 40px; margin-bottom: 20px; display: flex; justify-content: center; gap: 20px;">
-        
         <button onclick="window.open('reports.html', '_blank')" style="background-color: #cba6f7; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(203, 166, 247, 0.4); transition: 0.2s;">
             📂 Open Production Reports & History Hub
         </button>
-
         <button onclick="window.open('team_qr.html', '_blank')" style="background-color: #a6e3a1; color: #11111b; border: none; padding: 15px 30px; font-size: 1.3rem; font-weight: bold; border-radius: 10px; cursor: pointer; box-shadow: 0 5px 15px rgba(166, 227, 161, 0.4); transition: 0.2s;">
             📱 Team Telegram QR Codes
         </button>
-
     </div>
 
     <div class="chat-window minimized" id="chatWindow">
@@ -184,9 +149,7 @@
             <button class="tab-btn active" id="btn-QA" onclick="switchTab('QA', event)">QA</button>
             <button class="tab-btn" id="btn-ENG" onclick="switchTab('ENG', event)">ENG</button>
         </div>
-        <div class="chat-content" id="chat-box">
-            </div>
-        
+        <div class="chat-content" id="chat-box"></div>
         <div class="chat-input-area">
             <input type="text" id="chatInput" placeholder="Reply to team..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
             <button onclick="sendChatMessage()">Send</button>
@@ -194,10 +157,8 @@
     </div>
 
 <script>
-    // 🔥 ΒΑΛΕ ΕΔΩ ΤΟ ΔΙΚΟ ΣΟΥ RENDER URL 🔥
     const SERVER_URL = "https://my-factory-server.onrender.com";
 
-    // 🔥 ΑΣΦΑΛΕΙΑ: ΕΛΕΓΧΟΣ ΑΝ ΕΧΕΙ ΓΙΝΕΙ LOGIN ΑΠΟ ΤΟ PORTAL 🔥
     if (sessionStorage.getItem('supervisor_logged_in') !== 'true') {
         alert("🔒 ACCESS DENIED: Please login through the main portal.");
         window.location.href = 'index.html';
@@ -208,66 +169,17 @@
         "4": "Line 4", "5": "Pouch", "6": "Powder Room"
     };
 
-    let audioContext = null;
-    let isSoundEnabled = false;
-    let isAlertPlaying = false;
-    let alertInterval = null;
-    
-    // Μεταβλητές Chat
-    let activeChatTab = 'QA';
-    let chatData = { QA: [], ENG: [] };
-    let msgCounts = { QA: 0, ENG: 0 };
+    let audioContext = null; let isSoundEnabled = false; let isAlertPlaying = false; let alertInterval = null;
+    let activeChatTab = 'QA'; let chatData = { QA: [], ENG: [] }; let msgCounts = { QA: 0, ENG: 0 };
 
     function initUI() {
-        const grid = document.getElementById('stationsGrid');
-        const tbody = document.getElementById('shiftTableBody');
-        
+        const grid = document.getElementById('stationsGrid'); const tbody = document.getElementById('shiftTableBody');
         for (let i = 1; i <= 6; i++) {
-            let card = document.createElement('div');
-            card.className = "station-card offline";
-            card.id = `card-${i}`;
-            card.innerHTML = `
-                <div class="card-header">
-                    <h2>${STATION_NAMES[i]}</h2>
-                    <span class="status-badge offline" id="status-${i}">OFFLINE</span>
-                </div>
-                <div class="job-details">
-                    <div class="detail-row"><span class="detail-label">Active Batch:</span> <span class="detail-value" id="c-batch-${i}">-</span></div>
-                    <div class="detail-row"><span class="detail-label">Job Pieces:</span> <span class="detail-value val-highlight" id="c-pcs-${i}">0</span></div>
-                    <div class="detail-row"><span class="detail-label">Job Pallets:</span> <span class="detail-value" id="c-plts-${i}">0</span></div>
-                </div>
-                
-                <div class="alert-box" id="alert-${i}">
-                    <div class="alert-text" id="alert-text-${i}">Alert!</div>
-                    <button class="alert-btn" id="alert-btn-${i}" onclick="ackAlert(${i})">Acknowledge</button>
-                </div>
-
-                <div class="message-box">
-                    <input type="text" id="msg-input-${i}" placeholder="Send msg to tablet...">
-                    <button onclick="sendMessage(${i})">Send</button>
-                </div>
-                <div class="msg-status" id="msg-status-${i}"></div>
-            `;
+            let card = document.createElement('div'); card.className = "station-card offline"; card.id = `card-${i}`;
+            card.innerHTML = `<div class="card-header"><h2>${STATION_NAMES[i]}</h2><span class="status-badge offline" id="status-${i}">OFFLINE</span></div><div class="job-details"><div class="detail-row"><span class="detail-label">Active Batch:</span> <span class="detail-value" id="c-batch-${i}">-</span></div><div class="detail-row"><span class="detail-label">Job Pieces:</span> <span class="detail-value val-highlight" id="c-pcs-${i}">0</span></div><div class="detail-row"><span class="detail-label">Job Pallets:</span> <span class="detail-value" id="c-plts-${i}">0</span></div></div><div class="alert-box" id="alert-${i}"><div class="alert-text" id="alert-text-${i}">Alert!</div><button class="alert-btn" id="alert-btn-${i}" onclick="ackAlert(${i})">Acknowledge</button></div><div class="message-box"><input type="text" id="msg-input-${i}" placeholder="Send msg to tablet..."><button onclick="sendMessage(${i})">Send</button></div><div class="msg-status" id="msg-status-${i}"></div>`;
             grid.appendChild(card);
-
             let tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="tbl-station">${STATION_NAMES[i]}</td>
-                <td><span class="tbl-batch" id="t-batch-${i}">-</span></td>
-                <td class="tbl-num" id="t-plts-${i}">0</td>
-                <td class="tbl-num" id="t-pcs-${i}">0</td>
-                <td>
-                    <div class="target-control">
-                        <input type="number" id="target-input-${i}" placeholder="Target">
-                        <button onclick="setTarget(${i})">Set</button>
-                    </div>
-                </td>
-                <td>
-                    <div class="progress-container">
-                        <div class="progress-fill" id="prog-${i}">0%</div>
-                    </div>
-                </td>
-            `;
+            tr.innerHTML = `<td class="tbl-station">${STATION_NAMES[i]}</td><td><span class="tbl-batch" id="t-batch-${i}">-</span></td><td class="tbl-num" id="t-plts-${i}">0</td><td class="tbl-num" id="t-pcs-${i}">0</td><td><div class="target-control"><input type="number" id="target-input-${i}" placeholder="Target"><button onclick="setTarget(${i})">Set</button></div></td><td><div class="progress-container"><div class="progress-fill" id="prog-${i}">0%</div></div></td>`;
             tbody.appendChild(tr);
         }
     }
@@ -275,312 +187,105 @@
     function toggleSound() {
         const btn = document.getElementById('soundToggleBtn');
         if (!isSoundEnabled) {
-            try {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioContext.state === 'suspended') { audioContext.resume(); }
-                isSoundEnabled = true;
-                btn.className = "btn-sound active";
-                btn.innerHTML = "🔊 Sound Alerts: ON";
-                playChime(); 
-            } catch(e) {
-                alert("Audio is not supported in this browser.");
-            }
-        } else {
-            isSoundEnabled = false;
-            btn.className = "btn-sound";
-            btn.innerHTML = "🔇 Turn On Sound Alerts";
-            if (isAlertPlaying) {
-                isAlertPlaying = false;
-                clearInterval(alertInterval);
-            }
-        }
+            try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); if (audioContext.state === 'suspended') { audioContext.resume(); } isSoundEnabled = true; btn.className = "btn-sound active"; btn.innerHTML = "🔊 Sound Alerts: ON"; playChime(); } catch(e) { alert("Audio is not supported in this browser."); }
+        } else { isSoundEnabled = false; btn.className = "btn-sound"; btn.innerHTML = "🔇 Turn On Sound Alerts"; if (isAlertPlaying) { isAlertPlaying = false; clearInterval(alertInterval); } }
     }
 
     function playChime() {
         if (!isSoundEnabled || !audioContext) return;
-        try {
-            let osc1 = audioContext.createOscillator();
-            let gainNode = audioContext.createGain();
-            osc1.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(600, audioContext.currentTime);
-            osc1.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1);
-            
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
-            
-            osc1.start(audioContext.currentTime);
-            osc1.stop(audioContext.currentTime + 0.5);
-        } catch(e) {}
+        try { let osc1 = audioContext.createOscillator(); let gainNode = audioContext.createGain(); osc1.connect(gainNode); gainNode.connect(audioContext.destination); osc1.type = 'sine'; osc1.frequency.setValueAtTime(600, audioContext.currentTime); osc1.frequency.exponentialRampToValueAtTime(800, audioContext.currentTime + 0.1); gainNode.gain.setValueAtTime(0, audioContext.currentTime); gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.05); gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5); osc1.start(audioContext.currentTime); osc1.stop(audioContext.currentTime + 0.5); } catch(e) {}
     }
 
-    // --- ΛΕΙΤΟΥΡΓΙΕΣ CHAT ---
-    function toggleChat() {
-        const chatWin = document.getElementById('chatWindow');
-        chatWin.classList.toggle('minimized');
-    }
-
-    function clearActiveChat(event) {
-        event.stopPropagation();
-        if(confirm(`Are you sure you want to clear all messages in ${activeChatTab}?`)) {
-            fetch(`${SERVER_URL}/api/clear_chat`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tab: activeChatTab })
-            }).then(() => {
-                chatData[activeChatTab] = [];
-                msgCounts[activeChatTab] = 0;
-                renderChat();
-            });
-        }
-    }
-
-    function switchTab(tabName, event) {
-        if (event) event.stopPropagation();
-        activeChatTab = tabName;
-        
-        let btn = document.getElementById(`btn-${tabName}`);
-        btn.className = 'tab-btn active';
-        
-        let otherBtn = document.getElementById(tabName === 'QA' ? 'btn-ENG' : 'btn-QA');
-        if (!otherBtn.classList.contains('new-msg')) {
-            otherBtn.className = 'tab-btn';
-        }
-        
-        renderChat();
-    }
-
-    function renderChat() {
-        const box = document.getElementById('chat-box');
-        const msgs = chatData[activeChatTab] || [];
-        if (msgs.length === 0) {
-            box.innerHTML = `<div style="text-align:center; color:#6c7086; margin-top: 20px;"><i>No updates yet...</i></div>`;
-        } else {
-            box.innerHTML = msgs.map(m => `<div class="chat-msg">${m}</div>`).join('');
-            box.scrollTop = box.scrollHeight;
-        }
-    }
+    function toggleChat() { document.getElementById('chatWindow').classList.toggle('minimized'); }
+    function clearActiveChat(event) { event.stopPropagation(); if(confirm(`Are you sure you want to clear all messages in ${activeChatTab}?`)) { fetch(`${SERVER_URL}/api/clear_chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: activeChatTab }) }).then(() => { chatData[activeChatTab] = []; msgCounts[activeChatTab] = 0; renderChat(); }); } }
+    function switchTab(tabName, event) { if (event) event.stopPropagation(); activeChatTab = tabName; document.getElementById(`btn-${tabName}`).className = 'tab-btn active'; document.getElementById(tabName === 'QA' ? 'btn-ENG' : 'btn-QA').className = 'tab-btn'; renderChat(); }
+    function renderChat() { const box = document.getElementById('chat-box'); const msgs = chatData[activeChatTab] || []; if (msgs.length === 0) { box.innerHTML = `<div style="text-align:center; color:#6c7086; margin-top: 20px;"><i>No updates yet...</i></div>`; } else { box.innerHTML = msgs.map(m => `<div class="chat-msg">${m}</div>`).join(''); box.scrollTop = box.scrollHeight; } }
 
     async function fetchChatMessages() {
         if (!SERVER_URL || !SERVER_URL.includes("http")) return;
         try {
-            const res = await fetch(`${SERVER_URL}/api/get_chat`);
-            const data = await res.json();
-            
-            let newMsgArrived = false;
-            chatData = data;
-
-            if (data.QA.length > msgCounts.QA) {
-                msgCounts.QA = data.QA.length;
-                newMsgArrived = true;
-                if (activeChatTab !== 'QA') {
-                    document.getElementById('btn-QA').classList.add('new-msg');
-                } else { renderChat(); }
-            }
-
-            if (data.ENG.length > msgCounts.ENG) {
-                msgCounts.ENG = data.ENG.length;
-                newMsgArrived = true;
-                if (activeChatTab !== 'ENG') {
-                    document.getElementById('btn-ENG').classList.add('new-msg');
-                } else { renderChat(); }
-            }
-
+            const res = await fetch(`${SERVER_URL}/api/get_chat`); const data = await res.json(); let newMsgArrived = false; chatData = data;
+            if (data.QA.length > msgCounts.QA) { msgCounts.QA = data.QA.length; newMsgArrived = true; if (activeChatTab !== 'QA') { document.getElementById('btn-QA').classList.add('new-msg'); } else { renderChat(); } }
+            if (data.ENG.length > msgCounts.ENG) { msgCounts.ENG = data.ENG.length; newMsgArrived = true; if (activeChatTab !== 'ENG') { document.getElementById('btn-ENG').classList.add('new-msg'); } else { renderChat(); } }
             if (data.QA.length < msgCounts.QA) { msgCounts.QA = data.QA.length; if(activeChatTab === 'QA') renderChat(); }
             if (data.ENG.length < msgCounts.ENG) { msgCounts.ENG = data.ENG.length; if(activeChatTab === 'ENG') renderChat(); }
-            
-            if (newMsgArrived) { 
-                playChime(); 
-                document.getElementById('chatWindow').classList.remove('minimized'); 
-            }
-
+            if (newMsgArrived) { playChime(); document.getElementById('chatWindow').classList.remove('minimized'); }
         } catch(e) {}
     }
 
-    function sendChatMessage() {
-        let inputField = document.getElementById('chatInput');
-        let msg = inputField.value.trim();
-        if (msg === "") return;
+    function sendChatMessage() { let inputField = document.getElementById('chatInput'); let msg = inputField.value.trim(); if (msg === "") return; fetch(`${SERVER_URL}/api/send_chat_message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tab: activeChatTab, message: msg }) }).then(() => { inputField.value = ""; fetchChatMessages(); }); }
 
-        fetch(`${SERVER_URL}/api/send_chat_message`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tab: activeChatTab, message: msg })
-        }).then(() => {
-            inputField.value = ""; 
-            fetchChatMessages(); 
-        }).catch(err => alert("Error sending message. Check connection."));
-    }
-
-    // --- ΚΥΡΙΕΣ ΛΕΙΤΟΥΡΓΙΕΣ PANEL ---
     async function fetchSupervisorData() {
         if (!SERVER_URL || !SERVER_URL.includes("http")) return;
         try {
-            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`);
-            const data = await res.json();
-            
-            let globalTotalPieces = 0;
-            let globalTotalTarget = 0;
-            let anyAlertActive = false;
+            const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`); const data = await res.json();
+            let globalTotalPieces = 0; let globalTotalTarget = 0; let anyAlertActive = false;
 
             for (let i = 1; i <= 6; i++) {
-                let st = data[i.toString()];
-                if (!st) continue;
-
-                globalTotalPieces += st.shift_total || 0;
-                globalTotalTarget += st.shift_target || 0;
-
-                let card = document.getElementById(`card-${i}`);
-                let statusBadge = document.getElementById(`status-${i}`);
-                if (st.status === "Online") {
-                    card.className = "station-card online";
-                    statusBadge.className = "status-badge online";
-                    statusBadge.textContent = "ONLINE";
-                } else {
-                    card.className = "station-card offline";
-                    statusBadge.className = "status-badge offline";
-                    statusBadge.textContent = "OFFLINE";
-                }
+                let st = data[i.toString()]; if (!st) continue;
+                globalTotalPieces += st.shift_total || 0; globalTotalTarget += st.shift_target || 0;
+                let card = document.getElementById(`card-${i}`); let statusBadge = document.getElementById(`status-${i}`);
+                if (st.status === "Online") { card.className = "station-card online"; statusBadge.className = "status-badge online"; statusBadge.textContent = "ONLINE"; } 
+                else { card.className = "station-card offline"; statusBadge.className = "status-badge offline"; statusBadge.textContent = "OFFLINE"; }
 
                 document.getElementById(`c-batch-${i}`).textContent = st.batch_number;
                 document.getElementById(`c-pcs-${i}`).textContent = (st.job_total || 0).toLocaleString();
                 document.getElementById(`c-plts-${i}`).textContent = st.job_pallets || 0;
 
-                let alertBox = document.getElementById(`alert-${i}`);
-                let alertText = document.getElementById(`alert-text-${i}`);
-                let alertBtn = document.getElementById(`alert-btn-${i}`);
-
-                // 🔥 ΑΝΑΒΑΘΜΙΣΗ: ΕΜΦΑΝΙΣΗ ΣΗΜΕΙΩΜΑΤΟΣ ΕΡΓΑΤΗ ΣΤΗΝ ΟΘΟΝΗ ΕΠΟΠΤΗ 🔥
+                let alertBox = document.getElementById(`alert-${i}`); let alertText = document.getElementById(`alert-text-${i}`); let alertBtn = document.getElementById(`alert-btn-${i}`);
                 if (st.worker_alert !== "" && !st.alert_acknowledged) {
-                    anyAlertActive = true;
-                    let typeClass = st.worker_alert.toLowerCase(); 
-                    
-                    alertBox.className = `alert-box ${typeClass}`;
-                    alertText.className = `alert-text ${typeClass}`;
-                    alertBtn.className = `alert-btn ${typeClass}`;
-                    
-                    // Αν υπάρχει σημείωμα, φτιάξε ένα όμορφο εσωτερικό πλαίσιο
+                    anyAlertActive = true; let typeClass = st.worker_alert.toLowerCase(); alertBox.className = `alert-box ${typeClass}`; alertText.className = `alert-text ${typeClass}`; alertBtn.className = `alert-btn ${typeClass}`;
                     let noteHTML = st.worker_note ? `<br><span style="font-size:1rem; font-weight:normal; display:block; margin-top:8px; background:rgba(0,0,0,0.3); padding:6px; border-radius:6px; color:#fff; border-left: 3px solid #fff; text-align:left;">📝 ${st.worker_note}</span>` : "";
-                    
-                    alertText.innerHTML = `⚠️ Call from: ${st.worker_alert}${noteHTML}`;
-                    alertBox.style.display = "block";
-                } else {
-                    alertBox.style.display = "none";
-                }
+                    alertText.innerHTML = `⚠️ Call from: ${st.worker_alert}${noteHTML}`; alertBox.style.display = "block";
+                } else { alertBox.style.display = "none"; }
 
                 let msgStatus = document.getElementById(`msg-status-${i}`);
-                if (st.supervisor_message !== "") {
-                    msgStatus.textContent = st.message_read ? "✓ Tablet read your message" : "⏳ Tablet ringing... (Unread)";
-                    msgStatus.style.color = st.message_read ? "#a6e3a1" : "#f9e2af";
-                } else {
-                    msgStatus.textContent = "";
-                }
+                if (st.supervisor_message !== "") { msgStatus.textContent = st.message_read ? "✓ Tablet read your message" : "⏳ Tablet ringing... (Unread)"; msgStatus.style.color = st.message_read ? "#a6e3a1" : "#f9e2af"; } 
+                else { msgStatus.textContent = ""; }
 
                 document.getElementById(`t-batch-${i}`).textContent = st.batch_number;
                 document.getElementById(`t-plts-${i}`).textContent = st.shift_pallets || 0;
                 document.getElementById(`t-pcs-${i}`).textContent = (st.shift_total || 0).toLocaleString();
                 
                 let targetInput = document.getElementById(`target-input-${i}`);
-                if (document.activeElement !== targetInput && st.shift_target > 0) {
-                    targetInput.value = st.shift_target;
-                }
+                if (document.activeElement !== targetInput && st.shift_target > 0) { targetInput.value = st.shift_target; }
 
-                let progBar = document.getElementById(`prog-${i}`);
-                let pct = 0;
-                if (st.shift_target > 0) {
-                    pct = Math.floor((st.shift_total / st.shift_target) * 100);
-                }
+                let progBar = document.getElementById(`prog-${i}`); let pct = 0;
+                if (st.shift_target > 0) { pct = Math.floor((st.shift_total / st.shift_target) * 100); }
                 if (pct > 100) pct = 100;
+                progBar.style.width = `${pct}%`; progBar.textContent = pct > 0 ? `${pct}%` : "";
                 
-                progBar.style.width = `${pct}%`;
-                progBar.textContent = pct > 0 ? `${pct}%` : "";
-                
-                // 🔥 ΝΕΟ: ΧΡΩΜΑΤΙΚΗ ΠΑΛΕΤΑ ANDON 🔥
-                if (st.shift_target === 0 || pct === 0) {
-                    progBar.style.backgroundColor = "#45475a"; // Σκούρο γκρι αν δεν υπάρχει στόχος
-                } else if (pct < 80) {
-                    progBar.style.backgroundColor = "#f38ba8"; // Κόκκινο (Πολύ πίσω από τον στόχο <80%)
-                    progBar.style.color = "#11111b";
-                } else if (pct >= 80 && pct < 95) {
-                    progBar.style.backgroundColor = "#f9e2af"; // Κίτρινο (Οριακά πίσω 80% - 95%)
-                    progBar.style.color = "#11111b";
-                } else {
-                    progBar.style.backgroundColor = "#a6e3a1"; // Πράσινο (Εντός στόχου >=95%)
-                    progBar.style.color = "#11111b";
-                }
+                if (st.shift_target === 0 || pct === 0) { progBar.style.backgroundColor = "#45475a"; } 
+                else if (pct < 80) { progBar.style.backgroundColor = "#f38ba8"; progBar.style.color = "#11111b"; } 
+                else if (pct >= 80 && pct < 95) { progBar.style.backgroundColor = "#f9e2af"; progBar.style.color = "#11111b"; } 
+                else { progBar.style.backgroundColor = "#a6e3a1"; progBar.style.color = "#11111b"; }
             }
 
-            let facBar = document.getElementById('factoryProgFill');
-            let facText = document.getElementById('factoryNumText');
-            
+            let facBar = document.getElementById('factoryProgFill'); let facText = document.getElementById('factoryNumText');
             facText.textContent = `${globalTotalPieces.toLocaleString()} / ${globalTotalTarget.toLocaleString()}`;
-            
-            let facPct = 0;
-            if (globalTotalTarget > 0) {
-                facPct = Math.floor((globalTotalPieces / globalTotalTarget) * 100);
-            }
+            let facPct = 0; if (globalTotalTarget > 0) { facPct = Math.floor((globalTotalPieces / globalTotalTarget) * 100); }
             if (facPct > 100) facPct = 100;
-            
-            facBar.style.width = `${facPct}%`;
-            facBar.textContent = facPct > 0 ? `${facPct}%` : "";
-            if (facPct >= 100 && globalTotalTarget > 0) { facBar.classList.add('done'); } else { facBar.classList.remove('done'); }
+            facBar.style.width = `${facPct}%`; facBar.textContent = facPct > 0 ? `${facPct}%` : "";
+            if (facPct >= 100 && globalTotalTarget > 0) { facBar.style.backgroundColor = "#a6e3a1"; } else { facBar.style.backgroundColor = "#89b4fa"; }
 
-            if (anyAlertActive && !isAlertPlaying) {
-                isAlertPlaying = true;
-                playChime(); 
-                alertInterval = setInterval(playChime, 4000); 
-            } else if (!anyAlertActive && isAlertPlaying) {
-                isAlertPlaying = false;
-                clearInterval(alertInterval);
-            }
-
+            if (anyAlertActive && !isAlertPlaying) { isAlertPlaying = true; playChime(); alertInterval = setInterval(playChime, 4000); } 
+            else if (!anyAlertActive && isAlertPlaying) { isAlertPlaying = false; clearInterval(alertInterval); }
         } catch (e) {}
     }
 
-    function setTarget(stationId) {
-        let val = document.getElementById(`target-input-${stationId}`).value;
-        if (!val || val <= 0) return;
-        fetch(`${SERVER_URL}/api/set_target`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, target: parseInt(val) })
-        });
-    }
-
-    function sendMessage(stationId) {
-        let msgInput = document.getElementById(`msg-input-${stationId}`);
-        let msg = msgInput.value.trim();
-        if (msg === "") return;
-        fetch(`${SERVER_URL}/api/send_message`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId, message: msg })
-        }).then(() => { msgInput.value = ""; });
-    }
-
+    function setTarget(stationId) { let val = document.getElementById(`target-input-${stationId}`).value; if (!val || val <= 0) return; fetch(`${SERVER_URL}/api/set_target`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, target: parseInt(val) }) }); }
+    function sendMessage(stationId) { let msgInput = document.getElementById(`msg-input-${stationId}`); let msg = msgInput.value.trim(); if (msg === "") return; fetch(`${SERVER_URL}/api/send_message`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId, message: msg }) }).then(() => { msgInput.value = ""; }); }
+    
     function ackAlert(stationId) {
-        // 🔴 ΝΕΟ: Εξαφανίζει το alert από την οθόνη ΑΜΕΣΩΣ με το πρώτο κλικ, για να μην ξαναπατάς!
         document.getElementById(`alert-${stationId}`).style.display = "none";
-
-        fetch(`${SERVER_URL}/api/ack_alert`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ station_id: stationId })
-        });
+        fetch(`${SERVER_URL}/api/ack_alert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ station_id: stationId }) });
     }
 
-    function resetAllShifts() {
-        if (confirm("⚠️ WARNING: Are you sure you want to completely RESET all shift totals, targets, and pallets across the entire factory?\n\nThis will zero out the Shift Totals table immediately.")) {
-            fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' });
-        }
-    }
+    function resetAllShifts() { if (confirm("⚠️ WARNING: Are you sure you want to completely RESET all shift totals, targets, and pallets across the entire factory?\n\nThis will zero out the Shift Totals table immediately.")) { fetch(`${SERVER_URL}/api/reset_shift`, { method: 'POST' }); } }
 
     initUI();
-    setInterval(fetchSupervisorData, 2000);
-    setInterval(fetchChatMessages, 3000);
-    fetchSupervisorData();
-    fetchChatMessages();
-
+    setInterval(fetchSupervisorData, 2000); setInterval(fetchChatMessages, 3000);
+    fetchSupervisorData(); fetchChatMessages();
 </script>
 </body>
 </html>
