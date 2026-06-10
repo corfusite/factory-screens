@@ -96,7 +96,7 @@ function updateJobProgressUI(currentTotalProducts) {
     if (!batchSize || batchSize <= 0) return;
     let percentage = (currentTotalProducts / batchSize) * 100; let difference = currentTotalProducts - batchSize;
     let pctEl = document.getElementById('ui-progress-pct'); let diffEl = document.getElementById('ui-progress-diff'); if (!pctEl || !diffEl) return;
-    pctEl.textContent = percentage.toFixed(1) + "%";
+    pctEl.textContent = percentage.toFixed(2) + "%";
     if (difference < 0) { diffEl.textContent = difference; diffEl.style.color = "#f38ba8"; pctEl.style.color = "#f38ba8"; } else { diffEl.textContent = "+" + difference; diffEl.style.color = "#a6e3a1"; pctEl.style.color = "#a6e3a1"; }
 }
 
