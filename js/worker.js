@@ -1,5 +1,5 @@
 /* =========================================
-   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - FINAL
+   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - FINAL WITH ADVANCED LOCK & UNDO
 ========================================= */
 
 if (localStorage.getItem('worker_logged_in') !== 'true') {
@@ -30,6 +30,9 @@ let countdownInterval, alarmInterval, alarmMessage = "", wasRadioPlayingBeforeAl
 
 let hasEnglishVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
 let chartInstance = null, savedLogsArray = [];
+
+// 🔥 ΝΕΟ: ΜΝΗΜΗ SNAPSHOT ΓΙΑ ΤΗΝ ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ (UNDO)
+let lastHourlySnapshot = null; 
 
 const display1 = document.getElementById('display1'), display2 = document.getElementById('display2');
 const startPauseBtn = document.getElementById('startPauseBtn'), dismissBtn = document.getElementById('dismissBtn');
@@ -71,7 +74,6 @@ async function createNewJobConfiguration() {
     if (!bSzInput || parseInt(bSzInput) <= 0) { alert("⚠️ ERROR: Invalid Batch Size!"); return; }
     let stId = document.getElementById('setupStationId').value; let sName = STATION_NAMES[stId] || "Unknown";
 
-    // 🔴 ΔΙΟΡΘΩΘΗΚΕ: FORCE OVERRIDE ΑΝΤΙ ΓΙΑ ACCESS DENIED
     if (SERVER_URL && SERVER_URL.includes("http")) {
         try {
             const res = await fetch(`${SERVER_URL}/api/get_supervisor_data`); const serverData = await res.json();
@@ -186,20 +188,129 @@ function updateLiveProgress() {
     addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
 }
 
+// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΟ HOURLY BOOKING ΜΕ SNAPSHOT ΓΙΑ UNDO & AUTOMATIC TIMEOUT RESET 🔥
 function calculateProduction() {
-    if (!activeJobId) return; let currentBoxesInput = document.getElementById('currentBoxes').value; if (currentBoxesInput === "") return;
-    let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0); let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+    if (!activeJobId) return;
+    let currentBoxesInput = document.getElementById('currentBoxes').value;
+    if (currentBoxesInput === "") return;
+
+    // ↩️ ΚΡΑΤΑΕΙ SNAPSHOT ΤΩΝ ΔΕΔΟΜΕΝΩΝ ΠΡΙΝ ΤΗΝ ΕΓΓΡΑΦΗ ΓΙΑ ΤΟ UNDO
+    lastHourlySnapshot = {
+        shiftTotal: globalData.shiftTotal,
+        hourCounter: globalData.hourCounter,
+        chartLabels: [...globalData.chartLabels],
+        chartData: [...globalData.chartData],
+        previousTotalProducts: previousTotalProducts,
+        lastCalculatedBoxes: lastCalculatedBoxes,
+        lastCalculatedLoose: lastCalculatedLoose,
+        logsCount: savedLogsArray.length
+    };
+    if(document.getElementById('undoHourlyBtn')) document.getElementById('undoHourlyBtn').style.display = 'inline-block';
+
+    let currentBoxes = Math.max(0, parseInt(currentBoxesInput) || 0); 
+    let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+    
     if (lastCalculatedBoxes !== null && lastCalculatedBoxes === currentBoxes && lastCalculatedLoose === looseProducts && globalData.hourCounter > 0) return;
-    let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts; let hourlyDifference = currentTotalProducts - previousTotalProducts;
-    let lastSynced = jobsDatabase[activeJobId].lastSyncedTotal || 0; let deltaTotal = currentTotalProducts - lastSynced; globalData.shiftTotal += deltaTotal;
-    updatePalletFills(currentTotalProducts); updateJobProgressUI(currentTotalProducts);
-    document.getElementById('resPrevTotal').textContent = previousTotalProducts; document.getElementById('resNewTotal').textContent = currentTotalProducts; document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; document.getElementById('resShiftTotal').textContent = globalData.shiftTotal; updateShiftGoalUI(globalData.shiftTotal);
-    globalData.hourCounter++; globalData.chartLabels.push(`Hour ${globalData.hourCounter}`); globalData.chartData.push(hourlyDifference); chartInstance.update();
+    
+    let currentTotalProducts = (currentBoxes * prodPerBox) + looseProducts; 
+    let hourlyDifference = currentTotalProducts - previousTotalProducts;
+    let lastSynced = jobsDatabase[activeJobId].lastSyncedTotal || 0; 
+    let deltaTotal = currentTotalProducts - lastSynced; 
+    globalData.shiftTotal += deltaTotal;
+    
+    updatePalletFills(currentTotalProducts); 
+    updateJobProgressUI(currentTotalProducts);
+    
+    document.getElementById('resPrevTotal').textContent = previousTotalProducts; 
+    document.getElementById('resNewTotal').textContent = currentTotalProducts; 
+    document.getElementById('resDifference').textContent = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference; 
+    document.getElementById('resShiftTotal').textContent = globalData.shiftTotal; 
+    updateShiftGoalUI(globalData.shiftTotal);
+    
+    globalData.hourCounter++; 
+    globalData.chartLabels.push(`Hour ${globalData.hourCounter}`); 
+    globalData.chartData.push(hourlyDifference); 
+    chartInstance.update();
+    
     let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
     addLogEntry(`Hourly Booked -> Prev: ${previousTotalProducts} | New: ${currentTotalProducts} | Hourly Diff: ${diffStr}`, 'calc');
-    lastCalculatedBoxes = currentBoxes; lastCalculatedLoose = looseProducts; previousTotalProducts = currentTotalProducts;
-    jobsDatabase[activeJobId].currentBoxesVal = currentBoxes; jobsDatabase[activeJobId].currentLooseVal = looseProducts; jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts; saveActiveJobState();
-    allStationsGlobalData[stationId] = globalData; localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData)); sendSyncToServer(false);
+    
+    lastCalculatedBoxes = currentBoxes; 
+    lastCalculatedLoose = looseProducts; 
+    previousTotalProducts = currentTotalProducts;
+    
+    jobsDatabase[activeJobId].currentBoxesVal = currentBoxes; 
+    jobsDatabase[activeJobId].currentLooseVal = looseProducts; 
+    jobsDatabase[activeJobId].lastSyncedTotal = currentTotalProducts; 
+    saveActiveJobState();
+    
+    allStationsGlobalData[stationId] = globalData; 
+    localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData)); 
+
+    // ⏳ ΕΠΑΝΕΚΚΙΝΗΣΗ ΧΡΟΝΟΜΕΤΡΟΥ ΩΣΤΕ ΝΑ ΞΑΝΑ-ΚΛΕΙΔΩΣΕΙ (DISABLE) ΑΥΤΟΜΑΤΑ
+    if (isRunning) {
+        timer2EndTime = Date.now() + (TIME_1_HOUR * 1000);
+    }
+    timer2Remaining = TIME_1_HOUR;
+    updateDisplays();
+
+    sendSyncToServer(false);
+}
+
+// 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ: ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ ΤΕΛΕΥΤΑΙΟΥ HOURLY ENTRY (UNDO) 🔥
+function undoLastHourly() {
+    if (!lastHourlySnapshot) return;
+    if (!confirm("↩️ UNDO: Are you sure you want to delete the last hourly production entry from the chart?")) return;
+
+    globalData.shiftTotal = lastHourlySnapshot.shiftTotal;
+    globalData.hourCounter = lastHourlySnapshot.hourCounter;
+    globalData.chartLabels = lastHourlySnapshot.chartLabels;
+    globalData.chartData = lastHourlySnapshot.chartData;
+    previousTotalProducts = lastHourlySnapshot.previousTotalProducts;
+    lastCalculatedBoxes = lastHourlySnapshot.lastCalculatedBoxes;
+    lastCalculatedLoose = lastHourlySnapshot.lastCalculatedLoose;
+
+    while (savedLogsArray.length > lastHourlySnapshot.logsCount) {
+        savedLogsArray.pop();
+    }
+
+    chartInstance.data.labels = globalData.chartLabels;
+    chartInstance.data.datasets[0].data = globalData.chartData;
+    chartInstance.update();
+
+    let currentBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
+    let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
+    let currentTotalNow = (currentBoxes * prodPerBox) + looseProducts;
+
+    document.getElementById('resPrevTotal').textContent = previousTotalProducts;
+    document.getElementById('resNewTotal').textContent = currentTotalNow;
+    document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
+    document.getElementById('resDifference').textContent = "0";
+
+    logList.innerHTML = "";
+    savedLogsArray.forEach(logItem => {
+        let li = document.createElement('li'); li.className = `log-item ${logItem.type}`;
+        li.innerHTML = `<span style="color:#6c7086">${logItem.stamp}</span> <span>${logItem.text}</span>`;
+        logList.insertBefore(li, logList.firstChild);
+    });
+
+    updatePalletFills(currentTotalNow);
+    updateJobProgressUI(currentTotalNow);
+    updateShiftGoalUI(globalData.shiftTotal);
+
+    if (jobsDatabase[activeJobId]) {
+        jobsDatabase[activeJobId].previousTotalProducts = previousTotalProducts;
+        jobsDatabase[activeJobId].lastCalculatedBoxes = lastCalculatedBoxes;
+        jobsDatabase[activeJobId].lastCalculatedLoose = lastCalculatedLoose;
+        jobsDatabase[activeJobId].lastSyncedTotal = currentTotalNow;
+        jobsDatabase[activeJobId].logs = [...savedLogsArray];
+    }
+    saveActiveJobState();
+    sendSyncToServer(false);
+
+    lastHourlySnapshot = null;
+    if(document.getElementById('undoHourlyBtn')) document.getElementById('undoHourlyBtn').style.display = 'none';
+    addLogEntry("↩️ Action Undone: Last Hourly log removed.", "check");
 }
 
 async function pollSupervisorTarget() {
@@ -271,7 +382,35 @@ function startRadio() { let url = stationSelector.value; if (url) { radioAudio.s
 function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textContent = "Play"; radioBtn.style.backgroundColor = "#b4befe"; }
 function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
 function formatTime(seconds, showHours = false) { if (isNaN(seconds) || seconds < 0) { seconds = 0; } let hrs = Math.floor(seconds / 3600), mins = Math.floor((seconds % 3600) / 60), secs = seconds % 60; let res = ""; if (showHours) res += (hrs < 10 ? "0" + hrs : hrs) + ":"; res += (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs); return res; }
-function updateDisplays() { if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN; if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR; display1.textContent = formatTime(timer1Remaining, false); display2.textContent = formatTime(timer2Remaining, true); }
+
+// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΟ UPDATE DISPLAYS ΓΙΑ ΑΥΤΟΜΑΤΟ LOCK / UNLOCK ΤΟΥ HOURLY BUTTON 🔥
+function updateDisplays() {
+    if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
+    if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
+    display1.textContent = formatTime(timer1Remaining, false);
+    display2.textContent = formatTime(timer2Remaining, true);
+
+    const hBtn = document.getElementById('hourlyBtn');
+    if (hBtn) {
+        if (!isRunning) {
+            // Αν είναι σε ΠΑΥΣΗ, το κουμπί ξεκλειδώνει για να κλείσεις τη δουλειά στο τέλος της βάρδιας
+            hBtn.disabled = false;
+            hBtn.style.opacity = "1";
+            hBtn.style.cursor = "pointer";
+        } else {
+            // Αν τρέχουν, ξεκλειδώνει ΜΟΝΟ αν ο χρόνος φτάσει στο 0 (00:00:00)
+            if (timer2Remaining > 0) {
+                hBtn.disabled = true;
+                hBtn.style.opacity = "0.4";
+                hBtn.style.cursor = "not-allowed";
+            } else {
+                hBtn.disabled = false;
+                hBtn.style.opacity = "1";
+                hBtn.style.cursor = "pointer";
+            }
+        }
+    }
+}
 
 function toggleTimers() {
     if (isRunning) { isRunning = false; clearInterval(countdownInterval); let now = Date.now(); if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000)); if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); startPauseBtn.textContent = "Resume Timers"; saveActiveJobState(); } 
