@@ -416,8 +416,38 @@ function updateDisplays() {
 }
 
 function toggleTimers() {
-    if (isRunning) { isRunning = false; clearInterval(countdownInterval); let now = Date.now(); if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000)); if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); startPauseBtn.textContent = "Resume Timers"; saveActiveJobState(); } 
-    else { isRunning = true; let now = Date.now(); if (isNaN(timer1Remaining) || timer1Remaining <= 0) timer1Remaining = TIME_30_MIN; if (isNaN(timer2Remaining) || timer2Remaining <= 0) timer2Remaining = TIME_1_HOUR; timer1EndTime = now + (timer1Remaining * 1000); timer2EndTime = now + (timer2Remaining * 1000); startPauseBtn.textContent = "Pause (Break)"; countdownInterval = setInterval(() => { let currentTime = Date.now(); let t1_ended = false, t2_ended = false; if (timer1Remaining > 0) { timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - currentTime) / 1000)); if (timer1Remaining === 0) t1_ended = true; } if (timer2Remaining > 0) { timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - currentTime) / 1000)); if (timer2Remaining === 0) t2_ended = true; } if (t1_ended || t2_ended) { if (isAlarmActive) { buildAlarmMessage(timer1Remaining === 0, timer2Remaining === 0); } else { triggerAlarm(t1_ended, t2_ended); } } updateDisplays(); }, 200); }
+    if (isRunning) { 
+        isRunning = false; 
+        clearInterval(countdownInterval); 
+        let now = Date.now(); 
+        if (timer1Remaining > 0) timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - now) / 1000)); 
+        if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); 
+        startPauseBtn.textContent = "Resume Timers"; 
+        saveActiveJobState(); 
+        
+        // ✅ Η ΔΙΟΡΘΩΣΗ: Ανανεώνει την οθόνη στην παύση για να ξεκλειδώσει το Hourly Button!
+        updateDisplays(); 
+    } 
+    else { 
+        isRunning = true; 
+        let now = Date.now(); 
+        if (isNaN(timer1Remaining) || timer1Remaining <= 0) timer1Remaining = TIME_30_MIN; 
+        if (isNaN(timer2Remaining) || timer2Remaining <= 0) timer2Remaining = TIME_1_HOUR; 
+        timer1EndTime = now + (timer1Remaining * 1000); 
+        timer2EndTime = now + (timer2Remaining * 1000); 
+        startPauseBtn.textContent = "Pause (Break)"; 
+        
+        updateDisplays(); // Κλειδώνει ξανά το κουμπί με το που ξεκινάει
+        
+        countdownInterval = setInterval(() => { 
+            let currentTime = Date.now(); 
+            let t1_ended = false, t2_ended = false; 
+            if (timer1Remaining > 0) { timer1Remaining = Math.max(0, Math.ceil((timer1EndTime - currentTime) / 1000)); if (timer1Remaining === 0) t1_ended = true; } 
+            if (timer2Remaining > 0) { timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - currentTime) / 1000)); if (timer2Remaining === 0) t2_ended = true; } 
+            if (t1_ended || t2_ended) { if (isAlarmActive) { buildAlarmMessage(timer1Remaining === 0, timer2Remaining === 0); } else { triggerAlarm(t1_ended, t2_ended); } } 
+            updateDisplays(); 
+        }, 200); 
+    }
 }
 
 function playDigitalBeep() { try { let audioCtx = new (window.AudioContext || window.webkitAudioContext)(); let oscillator = audioCtx.createOscillator(); let gainNode = audioCtx.createGain(); oscillator.connect(gainNode); gainNode.connect(audioCtx.destination); oscillator.type = 'sine'; oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime); oscillator.start(); gainNode.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + 0.3); oscillator.stop(audioCtx.currentTime + 0.3); } catch (e) { console.log(e); } }
