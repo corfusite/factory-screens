@@ -187,11 +187,13 @@ function updateLiveProgress() {
     addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
 }
 
+// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΟ HOURLY BOOKING ΜΕ ΣΩΣΤΟ SNAPSHOT ΓΙΑ ΤΑ ΣΥΝΟΛΑ 🔥
 function calculateProduction() {
     if (!activeJobId) return;
     let currentBoxesInput = document.getElementById('currentBoxes').value;
     if (currentBoxesInput === "") return;
 
+    // ↩️ ΚΡΑΤΑΕΙ SNAPSHOT ΑΠΟ ΟΛΑ ΤΑ ΣΥΝΟΛΑ ΠΡΙΝ ΤΗΝ ΕΓΓΡΑΦΗ
     lastHourlySnapshot = {
         shiftTotal: globalData.shiftTotal,
         hourCounter: globalData.hourCounter,
@@ -200,6 +202,7 @@ function calculateProduction() {
         previousTotalProducts: previousTotalProducts,
         lastCalculatedBoxes: lastCalculatedBoxes,
         lastCalculatedLoose: lastCalculatedLoose,
+        lastSyncedTotal: jobsDatabase[activeJobId].lastSyncedTotal || 0, // <--- Η ΔΙΟΡΘΩΣΗ ΕΙΝΑΙ ΕΔΩ
         logsCount: savedLogsArray.length
     };
     if(document.getElementById('undoHourlyBtn')) document.getElementById('undoHourlyBtn').style.display = 'inline-block';
@@ -256,10 +259,12 @@ function calculateProduction() {
     sendSyncToServer(false);
 }
 
+// 🔥 ΝΕΑ ΔΙΟΡΘΩΜΕΝΗ ΣΥΝΑΡΤΗΣΗ UNDO: ΕΠΑΝΑΦΕΡΕΙ ΤΑ ΣΩΣΤΑ ΣΥΝΟΛΑ 🔥
 function undoLastHourly() {
     if (!lastHourlySnapshot) return;
     if (!confirm("↩️ UNDO: Are you sure you want to delete the last hourly production entry from the chart?")) return;
 
+    // Επαναφορά ΟΛΩΝ των συνόλων ακριβώς όπως ήταν στο snapshot
     globalData.shiftTotal = lastHourlySnapshot.shiftTotal;
     globalData.hourCounter = lastHourlySnapshot.hourCounter;
     globalData.chartLabels = lastHourlySnapshot.chartLabels;
@@ -267,6 +272,7 @@ function undoLastHourly() {
     previousTotalProducts = lastHourlySnapshot.previousTotalProducts;
     lastCalculatedBoxes = lastHourlySnapshot.lastCalculatedBoxes;
     lastCalculatedLoose = lastHourlySnapshot.lastCalculatedLoose;
+    let restoredLastSyncedTotal = lastHourlySnapshot.lastSyncedTotal; // <--- Τραβάει το σωστό παλιό Job Total
 
     while (savedLogsArray.length > lastHourlySnapshot.logsCount) {
         savedLogsArray.pop();
@@ -276,12 +282,9 @@ function undoLastHourly() {
     chartInstance.data.datasets[0].data = globalData.chartData;
     chartInstance.update();
 
-    let currentBoxes = Math.max(0, parseInt(document.getElementById('currentBoxes').value) || 0);
-    let looseProducts = Math.max(0, parseInt(document.getElementById('currentLoose').value) || 0);
-    let currentTotalNow = (currentBoxes * prodPerBox) + looseProducts;
-
+    // Επαναφορά ενδείξεων στην οθόνη βάσει του παλιού συνόλου, ΟΧΙ αυτού που είναι τώρα γραμμένο στο input
     document.getElementById('resPrevTotal').textContent = previousTotalProducts;
-    document.getElementById('resNewTotal').textContent = currentTotalNow;
+    document.getElementById('resNewTotal').textContent = restoredLastSyncedTotal;
     document.getElementById('resShiftTotal').textContent = globalData.shiftTotal;
     document.getElementById('resDifference').textContent = "0";
 
@@ -292,15 +295,15 @@ function undoLastHourly() {
         logList.insertBefore(li, logList.firstChild);
     });
 
-    updatePalletFills(currentTotalNow);
-    updateJobProgressUI(currentTotalNow);
+    updatePalletFills(restoredLastSyncedTotal);
+    updateJobProgressUI(restoredLastSyncedTotal);
     updateShiftGoalUI(globalData.shiftTotal);
 
     if (jobsDatabase[activeJobId]) {
         jobsDatabase[activeJobId].previousTotalProducts = previousTotalProducts;
         jobsDatabase[activeJobId].lastCalculatedBoxes = lastCalculatedBoxes;
         jobsDatabase[activeJobId].lastCalculatedLoose = lastCalculatedLoose;
-        jobsDatabase[activeJobId].lastSyncedTotal = currentTotalNow;
+        jobsDatabase[activeJobId].lastSyncedTotal = restoredLastSyncedTotal; // <--- Σώζει το σωστό νούμερο στη βάση
         jobsDatabase[activeJobId].logs = [...savedLogsArray];
     }
     saveActiveJobState();
