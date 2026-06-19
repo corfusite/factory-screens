@@ -1,5 +1,5 @@
 /* =========================================
-   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - FINAL WITH ADVANCED LOCK & UNDO
+   ΚΕΝΤΡΙΚΗ ΛΟΓΙΚΗ ΕΡΓΑΤΗ (worker.js) - FINAL (NO BUTTON LOCK, WITH UNDO)
 ========================================= */
 
 if (localStorage.getItem('worker_logged_in') !== 'true') {
@@ -31,7 +31,6 @@ let countdownInterval, alarmInterval, alarmMessage = "", wasRadioPlayingBeforeAl
 let hasEnglishVoice = true, previousTotalProducts = null, lastCalculatedBoxes = null, lastCalculatedLoose = null;
 let chartInstance = null, savedLogsArray = [];
 
-// 🔥 ΝΕΟ: ΜΝΗΜΗ SNAPSHOT ΓΙΑ ΤΗΝ ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ (UNDO)
 let lastHourlySnapshot = null; 
 
 const display1 = document.getElementById('display1'), display2 = document.getElementById('display2');
@@ -188,13 +187,11 @@ function updateLiveProgress() {
     addLogEntry(`> Live Sync: Display updated to ${currentTotalProducts} pcs`, 'sync');
 }
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΟ HOURLY BOOKING ΜΕ SNAPSHOT ΓΙΑ UNDO & AUTOMATIC TIMEOUT RESET 🔥
 function calculateProduction() {
     if (!activeJobId) return;
     let currentBoxesInput = document.getElementById('currentBoxes').value;
     if (currentBoxesInput === "") return;
 
-    // ↩️ ΚΡΑΤΑΕΙ SNAPSHOT ΤΩΝ ΔΕΔΟΜΕΝΩΝ ΠΡΙΝ ΤΗΝ ΕΓΓΡΑΦΗ ΓΙΑ ΤΟ UNDO
     lastHourlySnapshot = {
         shiftTotal: globalData.shiftTotal,
         hourCounter: globalData.hourCounter,
@@ -231,7 +228,6 @@ function calculateProduction() {
     globalData.chartLabels.push(`Hour ${globalData.hourCounter}`); 
     globalData.chartData.push(hourlyDifference); 
     
-    // ✅ Η ΔΙΟΡΘΩΣΗ: Περνάμε χειροκίνητα τα νέα δεδομένα στο γράφημα!
     chartInstance.data.labels = globalData.chartLabels;
     chartInstance.data.datasets[0].data = globalData.chartData;
     chartInstance.update();
@@ -251,7 +247,6 @@ function calculateProduction() {
     allStationsGlobalData[stationId] = globalData; 
     localStorage.setItem('all_stations_global_db', JSON.stringify(allStationsGlobalData)); 
 
-    // ⏳ ΕΠΑΝΕΚΚΙΝΗΣΗ ΧΡΟΝΟΜΕΤΡΟΥ ΩΣΤΕ ΝΑ ΞΑΝΑ-ΚΛΕΙΔΩΣΕΙ (DISABLE) ΑΥΤΟΜΑΤΑ
     if (isRunning) {
         timer2EndTime = Date.now() + (TIME_1_HOUR * 1000);
     }
@@ -261,7 +256,6 @@ function calculateProduction() {
     sendSyncToServer(false);
 }
 
-// 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ: ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ ΤΕΛΕΥΤΑΙΟΥ HOURLY ENTRY (UNDO) 🔥
 function undoLastHourly() {
     if (!lastHourlySnapshot) return;
     if (!confirm("↩️ UNDO: Are you sure you want to delete the last hourly production entry from the chart?")) return;
@@ -387,31 +381,11 @@ function stopRadio() { radioAudio.pause(); radioAudio.src = ""; radioBtn.textCon
 function onStationChange() { if (!radioAudio.paused) { stopRadio(); startRadio(); } }
 function formatTime(seconds, showHours = false) { if (isNaN(seconds) || seconds < 0) { seconds = 0; } let hrs = Math.floor(seconds / 3600), mins = Math.floor((seconds % 3600) / 60), secs = seconds % 60; let res = ""; if (showHours) res += (hrs < 10 ? "0" + hrs : hrs) + ":"; res += (mins < 10 ? "0" + mins : mins) + ":" + (secs < 10 ? "0" + secs : secs); return res; }
 
-// 🔥 ΑΝΑΒΑΘΜΙΣΜΕΝΟ UPDATE DISPLAYS ΓΙΑ ΑΥΤΟΜΑΤΟ LOCK / UNLOCK ΤΟΥ HOURLY BUTTON 🔥
 function updateDisplays() {
     if (isNaN(timer1Remaining)) timer1Remaining = TIME_30_MIN;
     if (isNaN(timer2Remaining)) timer2Remaining = TIME_1_HOUR;
     display1.textContent = formatTime(timer1Remaining, false);
     display2.textContent = formatTime(timer2Remaining, true);
-
-    const hBtn = document.getElementById('hourlyBtn');
-    if (hBtn) {
-        if (!isRunning) {
-            hBtn.disabled = false;
-            hBtn.style.opacity = "1";
-            hBtn.style.cursor = "pointer";
-        } else {
-            if (timer2Remaining > 0) {
-                hBtn.disabled = true;
-                hBtn.style.opacity = "0.4";
-                hBtn.style.cursor = "not-allowed";
-            } else {
-                hBtn.disabled = false;
-                hBtn.style.opacity = "1";
-                hBtn.style.cursor = "pointer";
-            }
-        }
-    }
 }
 
 function toggleTimers() {
@@ -423,7 +397,7 @@ function toggleTimers() {
         if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); 
         startPauseBtn.textContent = "Resume Timers"; 
         saveActiveJobState(); 
-        updateDisplays(); // ✅ Η ΔΙΟΡΘΩΣΗ ΕΙΝΑΙ ΕΔΩ! Ξεκλειδώνει το κουμπί στην παύση.
+        updateDisplays(); 
     } 
     else { 
         isRunning = true; 
