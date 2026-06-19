@@ -260,6 +260,7 @@ function calculateProduction() {
 
     sendSyncToServer(false);
 }
+
 // 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ: ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ ΤΕΛΕΥΤΑΙΟΥ HOURLY ENTRY (UNDO) 🔥
 function undoLastHourly() {
     if (!lastHourlySnapshot) return;
@@ -396,12 +397,10 @@ function updateDisplays() {
     const hBtn = document.getElementById('hourlyBtn');
     if (hBtn) {
         if (!isRunning) {
-            // Αν είναι σε ΠΑΥΣΗ, το κουμπί ξεκλειδώνει για να κλείσεις τη δουλειά στο τέλος της βάρδιας
             hBtn.disabled = false;
             hBtn.style.opacity = "1";
             hBtn.style.cursor = "pointer";
         } else {
-            // Αν τρέχουν, ξεκλειδώνει ΜΟΝΟ αν ο χρόνος φτάσει στο 0 (00:00:00)
             if (timer2Remaining > 0) {
                 hBtn.disabled = true;
                 hBtn.style.opacity = "0.4";
@@ -424,9 +423,7 @@ function toggleTimers() {
         if (timer2Remaining > 0) timer2Remaining = Math.max(0, Math.ceil((timer2EndTime - now) / 1000)); 
         startPauseBtn.textContent = "Resume Timers"; 
         saveActiveJobState(); 
-        
-        // ✅ Η ΔΙΟΡΘΩΣΗ: Ανανεώνει την οθόνη στην παύση για να ξεκλειδώσει το Hourly Button!
-        updateDisplays(); 
+        updateDisplays(); // ✅ Η ΔΙΟΡΘΩΣΗ ΕΙΝΑΙ ΕΔΩ! Ξεκλειδώνει το κουμπί στην παύση.
     } 
     else { 
         isRunning = true; 
@@ -437,7 +434,7 @@ function toggleTimers() {
         timer2EndTime = now + (timer2Remaining * 1000); 
         startPauseBtn.textContent = "Pause (Break)"; 
         
-        updateDisplays(); // Κλειδώνει ξανά το κουμπί με το που ξεκινάει
+        updateDisplays(); 
         
         countdownInterval = setInterval(() => { 
             let currentTime = Date.now(); 
