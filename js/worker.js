@@ -230,6 +230,10 @@ function calculateProduction() {
     globalData.hourCounter++; 
     globalData.chartLabels.push(`Hour ${globalData.hourCounter}`); 
     globalData.chartData.push(hourlyDifference); 
+    
+    // ✅ Η ΔΙΟΡΘΩΣΗ: Περνάμε χειροκίνητα τα νέα δεδομένα στο γράφημα!
+    chartInstance.data.labels = globalData.chartLabels;
+    chartInstance.data.datasets[0].data = globalData.chartData;
     chartInstance.update();
     
     let diffStr = hourlyDifference >= 0 ? "+" + hourlyDifference : hourlyDifference;
@@ -256,7 +260,6 @@ function calculateProduction() {
 
     sendSyncToServer(false);
 }
-
 // 🔥 ΝΕΑ ΣΥΝΑΡΤΗΣΗ: ΛΕΙΤΟΥΡΓΙΑ ΑΝΑΙΡΕΣΗΣ ΤΕΛΕΥΤΑΙΟΥ HOURLY ENTRY (UNDO) 🔥
 function undoLastHourly() {
     if (!lastHourlySnapshot) return;
